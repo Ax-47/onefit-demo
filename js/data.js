@@ -37,7 +37,7 @@ const CATS = [['all','ทั้งหมด'],['street','สตรีทฟู�
 
 /* Partner restaurants reachable by table QR code (B2B campaign) */
 const PARTNERS = [
-  {id:'gb', n:'Green Bowl Café', area:'สยาม', deal:'ลด 20% เมนูสลัดและโบวล์คลีน', menu:[
+  {id:'gb', ms:['gluteal', 'hamstring', 'lower-back'], og:'3013', n:'Green Bowl Café', area:'สยาม', deal:'ลด 20% เมนูสลัดและโบวล์คลีน', menu:[
     {n:'Salmon Poke Bowl', e:'🥗', k:520, m:[32,58,16]},
     {n:'Chicken Caesar (น้ำสลัดแยก)', e:'🥗', k:390, m:[34,18,19]},
     {n:'Matcha Latte (นมโอ๊ต)', e:'🍵', k:170, m:[3,24,6]},
@@ -53,36 +53,38 @@ const PARTNERS = [
   ]},
 ];
 
-/* Bodyweight exercises. MET values after the Compendium of Physical Activities. */
+/* Bodyweight exercises. MET values after the Compendium of Physical Activities.
+   ms = muscles worked (body-map slugs), og = matching openGym exercise id for the GIF demo. */
 const EX = [
-  {id:'jj', n:'Jumping Jacks', th:'กระโดดตบ', met:8, f:['full'], mus:'ทั้งตัว, หัวใจ', how:['ยืนตรง แขนแนบลำตัว','กระโดดกางขา พร้อมยกแขนขึ้นเหนือศีรษะ','กระโดดกลับท่าเริ่มต้น ทำต่อเนื่อง'], easy:'ก้าวขาออกข้างสลับแทนการกระโดด'},
-  {id:'hk', n:'High Knees', th:'วิ่งยกเข่าสูง', met:8, f:['full','legs','core'], mus:'ต้นขา, หน้าท้อง', how:['วิ่งอยู่กับที่','ยกเข่าให้สูงระดับสะโพก','แกว่งแขนตามจังหวะ ลงน้ำหนักปลายเท้า'], easy:'เดินยกเข่าสูงช้า ๆ'},
-  {id:'mc', n:'Mountain Climbers', th:'ปีนเขา', met:8, f:['core','full'], mus:'หน้าท้อง, ไหล่', how:['เริ่มท่าแพลงก์แขนตึง','ดึงเข่าขวาเข้าหาอก แล้วสลับขาซ้าย','สะโพกนิ่ง ไม่ยกก้นสูง'], easy:'สลับขาช้า ๆ โดยวางมือบนเก้าอี้'},
-  {id:'bp', n:'Burpees', th:'เบอร์ปี', met:8, f:['full'], mus:'ทั้งตัว', how:['ย่อตัววางมือลงพื้น','กระโดดถีบขาไปด้านหลังเป็นท่าแพลงก์','ดึงขากลับ แล้วกระโดดขึ้นชูมือ'], easy:'ก้าวขาถอยหลังทีละข้าง ไม่ต้องกระโดด'},
-  {id:'sj', n:'Squat Jumps', th:'สควอตกระโดด', met:8, f:['legs','full'], mus:'ต้นขา, ก้น', how:['ย่อสควอต หลังตรง','ดันตัวกระโดดขึ้นเต็มแรง','ลงพื้นเบา ๆ แล้วย่อต่อทันที'], easy:'สควอตธรรมดาแล้วเขย่งปลายเท้า'},
-  {id:'sk', n:'Skaters', th:'สเก็ตเตอร์', met:7, f:['legs','full'], mus:'ต้นขาด้านนอก, ก้น', how:['กระโดดไปด้านข้างด้วยขาขวา','ขาซ้ายไขว้ไปด้านหลัง','สลับฝั่งต่อเนื่อง'], easy:'ก้าวข้างแทนการกระโดด'},
-  {id:'sq', n:'Bodyweight Squats', th:'สควอต', met:5, f:['legs'], mus:'ต้นขา, ก้น', how:['ยืนกางขากว้างเท่าไหล่','ย่อสะโพกไปด้านหลังเหมือนนั่งเก้าอี้','เข่าไม่เลยปลายเท้า แล้วดันขึ้น'], easy:'นั่งลงบนเก้าอี้แล้วลุกขึ้น'},
-  {id:'lg', n:'Alternating Lunges', th:'ลันจ์สลับขา', met:4, f:['legs'], mus:'ต้นขา, ก้น', how:['ก้าวขาขวาไปด้านหน้า','ย่อจนเข่าหลังเกือบแตะพื้น','ดันกลับ แล้วสลับขา'], easy:'ย่อแค่ครึ่งทางและจับผนังช่วยทรงตัว'},
+  {id:'jj', ms:['calves', 'quadriceps', 'deltoids'], og:'3224', n:'Jumping Jacks', th:'กระโดดตบ', met:8, f:['full'], mus:'ทั้งตัว, หัวใจ', how:['ยืนตรง แขนแนบลำตัว','กระโดดกางขา พร้อมยกแขนขึ้นเหนือศีรษะ','กระโดดกลับท่าเริ่มต้น ทำต่อเนื่อง'], easy:'ก้าวขาออกข้างสลับแทนการกระโดด'},
+  {id:'hk', ms:['quadriceps', 'hip-flexors', 'calves', 'abs'], og:'3636', n:'High Knees', th:'วิ่งยกเข่าสูง', met:8, f:['full','legs','core'], mus:'ต้นขา, หน้าท้อง', how:['วิ่งอยู่กับที่','ยกเข่าให้สูงระดับสะโพก','แกว่งแขนตามจังหวะ ลงน้ำหนักปลายเท้า'], easy:'เดินยกเข่าสูงช้า ๆ'},
+  {id:'mc', ms:['abs', 'deltoids', 'hip-flexors'], og:'0630', n:'Mountain Climbers', th:'ปีนเขา', met:8, f:['core','full'], mus:'หน้าท้อง, ไหล่', how:['เริ่มท่าแพลงก์แขนตึง','ดึงเข่าขวาเข้าหาอก แล้วสลับขาซ้าย','สะโพกนิ่ง ไม่ยกก้นสูง'], easy:'สลับขาช้า ๆ โดยวางมือบนเก้าอี้'},
+  {id:'bp', ms:['chest', 'quadriceps', 'deltoids', 'abs', 'triceps'], og:'1160', n:'Burpees', th:'เบอร์ปี', met:8, f:['full'], mus:'ทั้งตัว', how:['ย่อตัววางมือลงพื้น','กระโดดถีบขาไปด้านหลังเป็นท่าแพลงก์','ดึงขากลับ แล้วกระโดดขึ้นชูมือ'], easy:'ก้าวขาถอยหลังทีละข้าง ไม่ต้องกระโดด'},
+  {id:'sj', ms:['quadriceps', 'gluteal', 'calves'], og:'0514', n:'Squat Jumps', th:'สควอตกระโดด', met:8, f:['legs','full'], mus:'ต้นขา, ก้น', how:['ย่อสควอต หลังตรง','ดันตัวกระโดดขึ้นเต็มแรง','ลงพื้นเบา ๆ แล้วย่อต่อทันที'], easy:'สควอตธรรมดาแล้วเขย่งปลายเท้า'},
+  {id:'sk', ms:['gluteal', 'quadriceps', 'adductors'], og:'3361', n:'Skaters', th:'สเก็ตเตอร์', met:7, f:['legs','full'], mus:'ต้นขาด้านนอก, ก้น', how:['กระโดดไปด้านข้างด้วยขาขวา','ขาซ้ายไขว้ไปด้านหลัง','สลับฝั่งต่อเนื่อง'], easy:'ก้าวข้างแทนการกระโดด'},
+  {id:'sq', ms:['quadriceps', 'gluteal'], og:'1685', n:'Bodyweight Squats', th:'สควอต', met:5, f:['legs'], mus:'ต้นขา, ก้น', how:['ยืนกางขากว้างเท่าไหล่','ย่อสะโพกไปด้านหลังเหมือนนั่งเก้าอี้','เข่าไม่เลยปลายเท้า แล้วดันขึ้น'], easy:'นั่งลงบนเก้าอี้แล้วลุกขึ้น'},
+  {id:'lg', ms:['quadriceps', 'gluteal', 'hamstring'], og:'3470', n:'Alternating Lunges', th:'ลันจ์สลับขา', met:4, f:['legs'], mus:'ต้นขา, ก้น', how:['ก้าวขาขวาไปด้านหน้า','ย่อจนเข่าหลังเกือบแตะพื้น','ดันกลับ แล้วสลับขา'], easy:'ย่อแค่ครึ่งทางและจับผนังช่วยทรงตัว'},
   {id:'gb', n:'Glute Bridges', th:'ยกสะโพก', met:3.5, f:['legs'], mus:'ก้น, หลังล่าง', how:['นอนหงาย ชันเข่า','เกร็งก้นยกสะโพกขึ้นเป็นเส้นตรง','ค้าง 1 วินาทีแล้วลดลง'], easy:'ยกสะโพกครึ่งทาง'},
-  {id:'wall', n:'Wall Sit', th:'นั่งพิงกำแพง', met:4, f:['legs'], mus:'ต้นขาด้านหน้า', how:['หลังพิงกำแพง','ย่อจนต้นขาขนานพื้น','ค้างไว้ หายใจสม่ำเสมอ'], easy:'ย่อตื้นลง'},
-  {id:'bc', n:'Bicycle Crunches', th:'ปั่นจักรยานอากาศ', met:4, f:['core'], mus:'หน้าท้อง, เอวข้าง', how:['นอนหงาย มือแตะขมับ','ศอกขวาหาเข่าซ้าย พร้อมเหยียดขาขวา','สลับข้างเหมือนปั่นจักรยาน'], easy:'ครันช์ธรรมดา เท้าวางพื้น'},
-  {id:'pl', n:'Plank Jacks', th:'แพลงก์แจ็ก', met:6, f:['core'], mus:'หน้าท้อง, ไหล่', how:['ท่าแพลงก์แขนตึง','กระโดดกางขา-หุบขา','ลำตัวตรงตลอด'], easy:'แพลงก์ค้างนิ่ง'},
-  {id:'plank', n:'Forearm Plank', th:'แพลงก์ศอก', met:3.8, f:['core'], mus:'หน้าท้องลึก', how:['วางศอกใต้ไหล่','ลำตัวเป็นเส้นตรงจากหัวถึงส้นเท้า','เกร็งหน้าท้อง ค้างไว้'], easy:'วางเข่าลงพื้น'},
-  {id:'rt', n:'Russian Twists', th:'บิดลำตัว', met:4, f:['core'], mus:'เอวข้าง', how:['นั่งเอนหลัง ยกเท้าเล็กน้อย','บิดลำตัวไปขวา-ซ้าย','มือแตะพื้นข้างสะโพก'], easy:'วางเท้าบนพื้น'},
-  {id:'pu', n:'Push-ups', th:'วิดพื้น', met:3.8, f:['arms'], mus:'อก, แขนหลัง, ไหล่', how:['วางมือกว้างกว่าไหล่เล็กน้อย','ลดตัวลงจนอกเกือบแตะพื้น','ดันขึ้น ลำตัวตรง'], easy:'วางเข่าหรือวิดกับผนัง'},
-  {id:'td', n:'Tricep Dips', th:'ดิปแขนกับเก้าอี้', met:3.8, f:['arms'], mus:'แขนด้านหลัง', how:['มือจับขอบเก้าอี้ด้านหลัง','งอศอกลดตัวลง 90 องศา','ดันกลับขึ้น'], easy:'งอเข่าให้เท้าใกล้ตัว'},
-  {id:'ip', n:'Inchworm', th:'อินช์เวิร์ม', met:5, f:['arms','full'], mus:'ไหล่, หน้าท้อง, หลังขา', how:['ก้มแตะพื้น','เดินมือไปด้านหน้าจนเป็นแพลงก์','เดินมือกลับแล้วยืนขึ้น'], easy:'เดินมือแค่ครึ่งทาง'},
-  {id:'sb', n:'Shadow Boxing', th:'ชกลม', met:6, f:['arms','full'], mus:'ไหล่, แขน, หัวใจ', how:['ยืนท่าการ์ด ย่อเข่าเล็กน้อย','ชกหมัดตรงสลับ + หมัดฮุก','ขยับเท้าตลอด'], easy:'ชกช้าลงไม่ต้องขยับเท้า'},
+  {id:'wall', ms:['quadriceps'], n:'Wall Sit', th:'นั่งพิงกำแพง', met:4, f:['legs'], mus:'ต้นขาด้านหน้า', how:['หลังพิงกำแพง','ย่อจนต้นขาขนานพื้น','ค้างไว้ หายใจสม่ำเสมอ'], easy:'ย่อตื้นลง'},
+  {id:'bc', ms:['abs', 'obliques'], og:'0003', n:'Bicycle Crunches', th:'ปั่นจักรยานอากาศ', met:4, f:['core'], mus:'หน้าท้อง, เอวข้าง', how:['นอนหงาย มือแตะขมับ','ศอกขวาหาเข่าซ้าย พร้อมเหยียดขาขวา','สลับข้างเหมือนปั่นจักรยาน'], easy:'ครันช์ธรรมดา เท้าวางพื้น'},
+  {id:'pl', ms:['abs', 'deltoids'], n:'Plank Jacks', th:'แพลงก์แจ็ก', met:6, f:['core'], mus:'หน้าท้อง, ไหล่', how:['ท่าแพลงก์แขนตึง','กระโดดกางขา-หุบขา','ลำตัวตรงตลอด'], easy:'แพลงก์ค้างนิ่ง'},
+  {id:'plank', ms:['abs', 'lower-back'], og:'3665', n:'Forearm Plank', th:'แพลงก์ศอก', met:3.8, f:['core'], mus:'หน้าท้องลึก', how:['วางศอกใต้ไหล่','ลำตัวเป็นเส้นตรงจากหัวถึงส้นเท้า','เกร็งหน้าท้อง ค้างไว้'], easy:'วางเข่าลงพื้น'},
+  {id:'rt', ms:['obliques', 'abs'], og:'0687', n:'Russian Twists', th:'บิดลำตัว', met:4, f:['core'], mus:'เอวข้าง', how:['นั่งเอนหลัง ยกเท้าเล็กน้อย','บิดลำตัวไปขวา-ซ้าย','มือแตะพื้นข้างสะโพก'], easy:'วางเท้าบนพื้น'},
+  {id:'pu', ms:['chest', 'triceps', 'deltoids'], og:'0662', n:'Push-ups', th:'วิดพื้น', met:3.8, f:['arms'], mus:'อก, แขนหลัง, ไหล่', how:['วางมือกว้างกว่าไหล่เล็กน้อย','ลดตัวลงจนอกเกือบแตะพื้น','ดันขึ้น ลำตัวตรง'], easy:'วางเข่าหรือวิดกับผนัง'},
+  {id:'td', ms:['triceps'], og:'0129', n:'Tricep Dips', th:'ดิปแขนกับเก้าอี้', met:3.8, f:['arms'], mus:'แขนด้านหลัง', how:['มือจับขอบเก้าอี้ด้านหลัง','งอศอกลดตัวลง 90 องศา','ดันกลับขึ้น'], easy:'งอเข่าให้เท้าใกล้ตัว'},
+  {id:'ip', ms:['deltoids', 'abs', 'hamstring'], og:'1471', n:'Inchworm', th:'อินช์เวิร์ม', met:5, f:['arms','full'], mus:'ไหล่, หน้าท้อง, หลังขา', how:['ก้มแตะพื้น','เดินมือไปด้านหน้าจนเป็นแพลงก์','เดินมือกลับแล้วยืนขึ้น'], easy:'เดินมือแค่ครึ่งทาง'},
+  {id:'sb', ms:['deltoids', 'trapezius', 'obliques'], og:'2271', n:'Shadow Boxing', th:'ชกลม', met:6, f:['arms','full'], mus:'ไหล่, แขน, หัวใจ', how:['ยืนท่าการ์ด ย่อเข่าเล็กน้อย','ชกหมัดตรงสลับ + หมัดฮุก','ขยับเท้าตลอด'], easy:'ชกช้าลงไม่ต้องขยับเท้า'},
   // Stretch / low-intensity
-  {id:'cat', n:'Cat-Cow', th:'แมว-วัว', met:2.3, f:['stretch'], mus:'หลัง', how:['คุกเข่าวางมือ','หายใจเข้าแอ่นหลัง เงยหน้า','หายใจออกโก่งหลัง ก้มหน้า'], easy:'ทำช้าลง'},
-  {id:'child', n:"Child's Pose", th:'ท่าเด็ก', met:2.3, f:['stretch'], mus:'หลัง, สะโพก', how:['นั่งบนส้นเท้า','ก้มตัวไปด้านหน้า แขนเหยียดยาว','หายใจลึก ๆ'], easy:'วางหมอนใต้อก'},
-  {id:'ham', n:'Hamstring Stretch', th:'ยืดหลังขา', met:2.3, f:['stretch'], mus:'หลังขา', how:['นั่งเหยียดขาหนึ่งข้าง','ก้มแตะปลายเท้า หลังตรง','สลับข้างครึ่งเวลา'], easy:'งอเข่าเล็กน้อย'},
-  {id:'neck', n:'Neck & Shoulder Rolls', th:'หมุนคอและไหล่', met:2, f:['stretch','office'], mus:'คอ, บ่า', how:['หมุนไหล่ไปด้านหลังช้า ๆ','เอียงคอซ้าย-ขวา','ไม่หมุนคอเต็มวง'], easy:'ทำขณะนั่ง'},
-  {id:'march', n:'March in Place', th:'ย่ำเท้าอยู่กับที่', met:3.5, f:['office'], mus:'ขา, หัวใจ', how:['ย่ำเท้าสลับ','แกว่งแขนตามจังหวะ','หายใจสม่ำเสมอ'], easy:'ย่ำช้า ๆ'},
-  {id:'chsq', n:'Chair Squats', th:'ลุก-นั่งเก้าอี้', met:4, f:['office','legs'], mus:'ต้นขา, ก้น', how:['นั่งขอบเก้าอี้','ลุกขึ้นยืนโดยไม่ใช้มือ','นั่งลงช้า ๆ'], easy:'ใช้มือดันช่วย'},
-  {id:'deskpu', n:'Desk Push-ups', th:'วิดพื้นกับโต๊ะ', met:3, f:['office','arms'], mus:'อก, แขน', how:['มือวางขอบโต๊ะ','ลดอกเข้าหาโต๊ะ','ดันกลับ ลำตัวตรง'], easy:'ยืนใกล้โต๊ะขึ้น'},
+  {id:'cat', ms:['lower-back', 'upper-back', 'abs'], n:'Cat-Cow', th:'แมว-วัว', met:2.3, f:['stretch'], mus:'หลัง', how:['คุกเข่าวางมือ','หายใจเข้าแอ่นหลัง เงยหน้า','หายใจออกโก่งหลัง ก้มหน้า'], easy:'ทำช้าลง'},
+  {id:'child', ms:['lower-back', 'upper-back'], n:"Child's Pose", th:'ท่าเด็ก', met:2.3, f:['stretch'], mus:'หลัง, สะโพก', how:['นั่งบนส้นเท้า','ก้มตัวไปด้านหน้า แขนเหยียดยาว','หายใจลึก ๆ'], easy:'วางหมอนใต้อก'},
+  {id:'ham', ms:['hamstring'], og:'1511', n:'Hamstring Stretch', th:'ยืดหลังขา', met:2.3, f:['stretch'], mus:'หลังขา', how:['นั่งเหยียดขาหนึ่งข้าง','ก้มแตะปลายเท้า หลังตรง','สลับข้างครึ่งเวลา'], easy:'งอเข่าเล็กน้อย'},
+  {id:'neck', ms:['trapezius'], og:'1403', n:'Neck & Shoulder Rolls', th:'หมุนคอและไหล่', met:2, f:['stretch','office'], mus:'คอ, บ่า', how:['หมุนไหล่ไปด้านหลังช้า ๆ','เอียงคอซ้าย-ขวา','ไม่หมุนคอเต็มวง'], easy:'ทำขณะนั่ง'},
+  {id:'march', ms:['quadriceps', 'hip-flexors'], n:'March in Place', th:'ย่ำเท้าอยู่กับที่', met:3.5, f:['office'], mus:'ขา, หัวใจ', how:['ย่ำเท้าสลับ','แกว่งแขนตามจังหวะ','หายใจสม่ำเสมอ'], easy:'ย่ำช้า ๆ'},
+  {id:'chsq', ms:['quadriceps', 'gluteal'], og:'1685', n:'Chair Squats', th:'ลุก-นั่งเก้าอี้', met:4, f:['office','legs'], mus:'ต้นขา, ก้น', how:['นั่งขอบเก้าอี้','ลุกขึ้นยืนโดยไม่ใช้มือ','นั่งลงช้า ๆ'], easy:'ใช้มือดันช่วย'},
+  {id:'deskpu', ms:['chest', 'triceps'], og:'0659', n:'Desk Push-ups', th:'วิดพื้นกับโต๊ะ', met:3, f:['office','arms'], mus:'อก, แขน', how:['มือวางขอบโต๊ะ','ลดอกเข้าหาโต๊ะ','ดันกลับ ลำตัวตรง'], easy:'ยืนใกล้โต๊ะขึ้น'},
 ];
-const exById = id => EX.find(e => e.id === id);
+/* Falls back to the openGym library for ids like 'og0514' (see ogExercise in app.js) */
+function exById(id){ return EX.find(e => e.id === id) || (typeof ogExercise === 'function' ? ogExercise(id) : undefined); }
 
 /* Guided programs. rounds = exercise ids in order. */
 const PROGRAMS = [
@@ -133,3 +135,30 @@ const FRIENDS = [
   {n:'ต้นกล้า', burn:760, av:'🦊'},
   {n:'เจน', burn:420, av:'🐼'},
 ];
+
+/* Body-map vocabulary (slugs match js/body-paths.js) */
+const MUSCLE_TH = {
+  abs:'หน้าท้อง', obliques:'เอวข้าง', chest:'อก', deltoids:'ไหล่', biceps:'ต้นแขนหน้า', triceps:'ต้นแขนหลัง',
+  forearm:'แขนท่อนล่าง', trapezius:'บ่า', 'upper-back':'หลังบน', 'lower-back':'หลังล่าง', gluteal:'ก้น',
+  quadriceps:'ต้นขาหน้า', hamstring:'ต้นขาหลัง', adductors:'ต้นขาด้านใน', calves:'น่อง', tibialis:'หน้าแข้ง',
+  serratus:'ซี่โครงข้าง', 'hip-flexors':'สะโพกด้านหน้า',
+};
+const MUSCLES = Object.keys(MUSCLE_TH);
+const INERT = ['hair','head','neck','hands','knees','ankles','feet'];
+/* openGym dataset vocabulary → body-map slugs */
+const TG_SLUG = {
+  abs:['abs'], quads:['quadriceps'], lats:['upper-back'], calves:['calves'], pectorals:['chest'], glutes:['gluteal'],
+  hamstrings:['hamstring'], adductors:['adductors'], triceps:['triceps'], 'cardiovascular system':['quadriceps','calves'],
+  spine:['lower-back'], 'upper back':['upper-back'], biceps:['biceps'], delts:['deltoids'], forearms:['forearm'],
+  traps:['trapezius'], 'serratus anterior':['serratus'], abductors:['gluteal'], 'levator scapulae':['trapezius'],
+};
+const SM_SLUG = {
+  'hip flexors':'hip-flexors', 'lower back':'lower-back', obliques:'obliques', quadriceps:'quadriceps', hamstrings:'hamstring',
+  glutes:'gluteal', calves:'calves', shoulders:'deltoids', deltoids:'deltoids', triceps:'triceps', biceps:'biceps', chest:'chest',
+  core:'abs', abdominals:'abs', forearms:'forearm', trapezius:'trapezius', lats:'upper-back', 'upper back':'upper-back',
+  rhomboids:'upper-back', adductors:'adductors', 'inner thighs':'adductors', 'rear deltoids':'deltoids',
+};
+const BP_TH = {
+  waist:'หน้าท้อง/เอว', 'upper legs':'ต้นขา/ก้น', 'lower legs':'น่อง', back:'หลัง', chest:'อก', cardio:'คาร์ดิโอ',
+  'upper arms':'ต้นแขน', shoulders:'ไหล่', 'lower arms':'แขนท่อนล่าง', neck:'คอ',
+};

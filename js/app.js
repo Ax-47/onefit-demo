@@ -22,7 +22,7 @@ const TODAY = dkey();
 
 function seed(){
   const S = {
-    v:2, onboarded:true, premium:false, sample:true,
+    v:3, onboarded:true, premium:false, sample:true,
     profile:{name:'มิชา', sex:'f', age:22, height:163, weight:58, activity:1.375, goal:'lose'},
     level:'mid', focus:'full',
     settings:{voice:true, sound:true, theme:'auto'},
@@ -42,7 +42,8 @@ function seed(){
     const k = addDays(TODAY, i - 6);
     S.days[k] = {water:h.water, scans:3, log:[
       ...h.f.map((id, j) => ({t:times[j] || '20:00', kind:'food', id, q:1})),
-      ...h.w.map(([name, burn, min, offset]) => ({t:'18:30', kind:'workout', name, burn, min, offset:!!offset})),
+      ...h.w.map(([name, burn, min, offset]) => ({t:'18:30', kind:'workout', name, burn, min, offset:!!offset,
+        ex:(PROGRAMS.find(p => p.n === name) || PROGRAMS[0]).rounds.slice()})),
     ]};
   });
   S.days[TODAY] = {water:5, scans:3, log:[
@@ -64,7 +65,7 @@ function blank(){
 
 let S;
 try { S = JSON.parse(localStorage.getItem('onefit2') || 'null'); } catch(e){ S = null; }
-if (!S || S.v !== 2) S = seed();
+if (!S || S.v !== 3) S = seed();
 const save = () => { try { localStorage.setItem('onefit2', JSON.stringify(S)); } catch(e){} };
 const day = (k = TODAY) => (S.days[k] ||= {water:0, scans:0, log:[]});
 day();
@@ -102,6 +103,53 @@ function streak(){
 }
 const totalBurn = () => Object.values(S.days).reduce((a, d) => a + d.log.filter(l => l.kind === 'workout').reduce((b, l) => b + l.burn, 0), 0);
 const weekBurn = () => { let s = 0; for (let i = 0; i < 7; i++){ const d = S.days[addDays(TODAY, -i)]; if (d) s += d.log.filter(l => l.kind === 'workout').reduce((b, l) => b + l.burn, 0); } return s; };
+
+/* ---------- openGym library + body map ---------- */
+const OG = typeof OGDB !== 'undefined' ? OGDB : [];
+const OG_BY = Object.fromEntries(OG.map(o => [o.id, o]));
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+function ogMet(o){
+  if (/stretch|pose/.test(o.n)) return 2.3;
+  if (o.tg === 'cardiovascular system' || o.bp === 'cardio') return 7;
+  return o.bp === 'upper legs' || o.bp === 'waist' ? 4.5 : 4;
+}
+function ogMuscles(o){
+  const main = TG_SLUG[o.tg] || [];
+  const sec = (o.sm || []).map(m => SM_SLUG[m]).filter(Boolean);
+  return {main, sec:sec.filter(s => !main.includes(s))};
+}
+/* Shapes an openGym entry like an EX entry so programs and the player can use it */
+function ogExercise(id){
+  if (!id || !id.startsWith('og')) return undefined;
+  const o = OG_BY[id.slice(2)];
+  if (!o) return undefined;
+  const {main, sec} = ogMuscles(o);
+  return {id, n:cap(o.n), th:cap(o.n), met:ogMet(o), f:[], ms:[...main, ...sec], mus:[...main, ...sec].map(m => MUSCLE_TH[m]).join(', ') || BP_TH[o.bp] || o.bp,
+    how:o.st, easy:'ลดความเร็วหรือจำนวนครั้งลง และหยุดถ้ารู้สึกเจ็บ', gif:o.gif, fromOG:true};
+}
+function gifOf(e){ if (!e) return null; const f = e.gif || (e.og && OG_BY[e.og]?.gif); return f ? 'media/gif/' + f : null; }
+function musclesOf(e){ return e?.ms || []; }
+
+/* Sets per muscle from logged workouts in the last `days` days */
+function muscleLoad(days = 7){
+  const load = {};
+  for (let i = 0; i < days; i++){
+    (S.days[addDays(TODAY, -i)]?.log || []).forEach(l => (l.ex || []).forEach(id => musclesOf(exById(id)).forEach(m => load[m] = (load[m] || 0) + 1)));
+  }
+  return load;
+}
+function roundsLoad(rounds){ const load = {}; rounds.forEach(id => musclesOf(exById(id)).forEach(m => load[m] = (load[m] || 0) + 1)); return load; }
+function bodyMap(load, small = false){
+  if (typeof BODY_PATHS === 'undefined') return '';
+  const g = BODY_PATHS[S.profile.sex === 'm' ? 'male' : 'female'];
+  const max = Math.max(0, ...Object.values(load));
+  const lvl = m => !load[m] || !max ? 0 : Math.min(4, Math.ceil(load[m] / max * 4));
+  const view = (v, label) => `<figure class="bm-v"><svg viewBox="${v.vb}" role="img" aria-label="${label}">
+    ${INERT.flatMap(s => (v.p[s] || []).map(d => `<path class="bm-sil" d="${d}"/>`)).join('')}
+    ${MUSCLES.flatMap(s => (v.p[s] || []).map(d => `<path class="bm-m l${lvl(s)}" d="${d}"><title>${MUSCLE_TH[s]}${load[s] ? ` · ${load[s]} รอบ` : ''}</title></path>`)).join('')}
+  </svg><figcaption>${label}</figcaption></figure>`;
+  return `<div class="bodymap${small ? ' sm' : ''}">${view(g.front, 'ด้านหน้า')}${view(g.back, 'ด้านหลัง')}</div>`;
+}
 
 /* ---------- Badges ---------- */
 function award(id){
@@ -420,14 +468,15 @@ function viewWorkout(){
     <div class="programs">${progs.map(p => { const e = estimate(p); return `<button class="prog ${p.color || 'mint'}" onclick="previewProgram('${p.id}')">${p.pro && !S.premium ? '<span class="lock">PRO</span>' : ''}<span class="tiny faint">${esc(p.tag)}</span><span class="n">${esc(p.n)}</span><span class="meta num">${e.min} นาที · ~${fmt(e.burn)} kcal</span></button>`; }).join('')}</div>
   </section>
   <section class="stack">
-    <h3>คลังท่าออกกำลังกาย</h3>
+    <div class="sec-head"><h3>คลังท่าออกกำลังกาย</h3><button class="linkbtn" onclick="openLibrary()">ดูทั้งหมด ${OG.length} ท่า ›</button></div>
+    <button class="og-banner" onclick="openLibrary()"><img src="media/gif/${OG_BY['0630']?.gif || ''}" alt=""><div style="flex:1;text-align:left"><b>คลังท่าจาก openGym</b><div class="small muted">${OG.length} ท่าไม่ใช้อุปกรณ์ พร้อมภาพเคลื่อนไหวสาธิต</div></div><span aria-hidden="true">›</span></button>
     <div class="chips">${[['all','ทั้งหมด'],['full','ทั้งตัว'],['core','หน้าท้อง'],['legs','ขา/ก้น'],['arms','แขน/อก'],['office','ออฟฟิศ'],['stretch','ยืดเหยียด']].map(([k, v]) => `<button class="chip${exFilter === k ? ' on' : ''}" onclick="exFilter='${k}';render()">${v}</button>`).join('')}</div>
-    <div class="card" style="padding-block:6px">${exs.map(e => `<button class="ex" onclick="exDetail('${e.id}')"><div class="idx">${e.th.slice(0, 1)}</div><div style="flex:1;min-width:0"><div style="font-weight:500">${e.th}</div><div class="small muted">${e.n} · ${e.mus}</div></div><span class="small faint num">${kcalPerMin(e.met).toFixed(1)} kcal/นาที</span></button>`).join('')}</div>
+    <div class="card" style="padding-block:6px">${exs.map(e => `<button class="ex" onclick="exDetail('${e.id}')">${gifOf(e) ? `<img class="gthumb" loading="lazy" src="${gifOf(e)}" alt="">` : `<div class="idx">${e.th.slice(0, 1)}</div>`}<div style="flex:1;min-width:0"><div style="font-weight:500">${e.th}</div><div class="small muted">${e.n} · ${e.mus}</div></div><span class="small faint num">${kcalPerMin(e.met).toFixed(1)} kcal/นาที</span></button>`).join('')}</div>
   </section>
   <p class="demo-note">แคลอรีคำนวณจาก MET × น้ำหนัก ${S.profile.weight} กก. เป็นค่าประมาณ</p>`;
 }
 function setFocus(k, pro){ if (pro && !S.premium){ paywall('เวิร์กเอาต์ชดเชยเฉพาะจุดเป็นฟีเจอร์ Premium'); return; } S.focus = k; save(); render(); }
-function findProgram(id){ return id === 'offset' ? buildOffset(totals().over || 80) : [...PROGRAMS, ...S.custom].find(p => p.id === id); }
+function findProgram(id){ return id === 'offset' ? buildOffset(totals().over || 80) : id === 'temp' ? tempProg : [...PROGRAMS, ...S.custom].find(p => p.id === id); }
 
 function previewProgram(id){
   const p = findProgram(id), e = estimate(p);
@@ -435,34 +484,67 @@ function previewProgram(id){
   const locked = p.pro && !S.premium;
   sheet(`<div class="eyebrow">${esc(p.tag || 'ชดเชยแคลอรี')}</div><h2>${esc(p.n)}</h2>
     <div class="tiles"><div><b class="num">${e.min}</b><span class="small muted">นาที</span></div><div><b class="num">${fmt(e.burn)}</b><span class="small muted">kcal</span></div><div><b class="num">${p.rounds.length}</b><span class="small muted">ท่า</span></div></div>
-    <div>${grouped.map((g, i) => { const x = exById(g.id); return `<button class="ex" onclick="exDetail('${x.id}')"><div class="idx num">${i + 1}</div><div style="flex:1"><div style="font-weight:500">${x.th}</div><div class="small muted">${x.n}</div></div><span class="small muted num">${g.n} รอบ</span></button>`; }).join('')}</div>
+    ${bodyMap(roundsLoad(p.rounds), true)}
+    <div>${grouped.map((g, i) => { const x = exById(g.id); const gf = gifOf(x); return `<button class="ex" onclick="exDetail('${x.id}')">${gf ? `<img class="gthumb" loading="lazy" src="${gf}" alt="">` : `<div class="idx num">${i + 1}</div>`}<div style="flex:1"><div style="font-weight:500">${x.th}</div><div class="small muted">${x.n}</div></div><span class="small muted num">${g.n} รอบ</span></button>`; }).join('')}</div>
     ${p.mine ? `<button class="linkbtn" style="color:var(--coral)" onclick="delCustom('${p.id}')">ลบโปรแกรมนี้</button>` : ''}
     <div class="row"><button class="btn ghost" style="flex:1" onclick="closeSheet()">ปิด</button><button class="btn ${locked ? 'lime' : ''}" style="flex:2" onclick="startProgram('${p.id}')">${locked ? 'ปลดล็อกด้วย Premium' : 'เริ่มเลย'}</button></div>`);
 }
 function exDetail(id){
-  const e = exById(id);
-  sheet(`<div class="eyebrow">${e.n}</div><h2>${e.th}</h2>
+  const e = exById(id), gif = gifOf(e);
+  const load = {}; musclesOf(e).forEach((m, i) => load[m] = i < (e.fromOG ? (TG_SLUG[OG_BY[id.slice(2)]?.tg] || []).length : 99) ? 2 : 1);
+  sheet(`${gif ? `<div class="gifbox"><img src="${gif}" alt="ท่าตัวอย่าง ${esc(e.n)}"></div>` : ''}
+    <div class="eyebrow">${e.fromOG ? 'คลังท่า openGym' : esc(e.n)}</div><h2>${esc(e.th)}</h2>
     <div class="tiles"><div><b class="num">${e.met}</b><span class="small muted">MET</span></div><div><b class="num">${kcalPerMin(e.met).toFixed(1)}</b><span class="small muted">kcal/นาที</span></div><div><b class="num">${Math.round(kcalPerMin(e.met) * 0.67)}</b><span class="small muted">kcal/40 วิ</span></div></div>
-    <div><div class="eyebrow" style="margin-bottom:4px">วิธีทำ</div><ol class="steps">${e.how.map(s => `<li>${s}</li>`).join('')}</ol></div>
-    <div class="ok-banner small"><b>ท่าง่ายลง / ถนอมเข่า:</b> ${e.easy}</div>
-    <div class="small muted">กล้ามเนื้อหลัก: ${e.mus}</div>
-    <button class="btn ghost block" onclick="closeSheet()">ปิด</button>`);
+    <div><div class="eyebrow" style="margin-bottom:4px">วิธีทำ${e.fromOG ? ' (ภาษาอังกฤษจากชุดข้อมูล)' : ''}</div><ol class="steps">${e.how.map(s => `<li>${esc(s)}</li>`).join('')}</ol></div>
+    <div class="ok-banner small"><b>ท่าง่ายลง / ถนอมเข่า:</b> ${esc(e.easy)}</div>
+    <div class="small muted">กล้ามเนื้อที่ใช้: ${esc(e.mus)}</div>
+    ${bodyMap(load, true)}
+    <div class="row"><button class="btn ghost" style="flex:1" onclick="closeSheet()">ปิด</button><button class="btn" style="flex:1" onclick="tryExercise('${id}')">ลองทำ 3 รอบ</button></div>
+    ${builderOpen ? `<button class="btn lime block" onclick="builderSel.push('${id}');drawBuilder()">+ เพิ่มลงโปรแกรมที่กำลังสร้าง</button>` : `<button class="linkbtn" onclick="openBuilder('${id}')">+ สร้างโปรแกรมที่มีท่านี้${S.premium ? '' : ' (PRO)'}</button>`}`);
+}
+let tempProg = null;
+function tryExercise(id){ const e = exById(id); tempProg = {id:'temp', n:`ลองท่า ${e.th}`, tag:'ลองท่า', rounds:[id, id, id], rest:/stretch|pose/i.test(e.n) ? false : undefined}; closeSheet(); startProgram('temp'); }
+
+/* openGym library browser */
+let lib = {q:'', bp:'all', shown:40};
+function openLibrary(){ lib.shown = 40; drawLibrary(); }
+function libList(){
+  const q = lib.q.toLowerCase();
+  return OG.filter(o => (lib.bp === 'all' || o.bp === lib.bp) && (!q || o.n.includes(q) || (MUSCLE_TH[(TG_SLUG[o.tg] || [])[0]] || '').includes(lib.q)));
+}
+function libRows(){
+  const list = libList();
+  return `<p class="small muted num">${fmt(list.length)} ท่า</p>
+    <div>${list.slice(0, lib.shown).map(o => { const m = (TG_SLUG[o.tg] || []).map(s => MUSCLE_TH[s]).join(', ');
+      return `<button class="ex" onclick="exDetail('og${o.id}')"><img class="gthumb" loading="lazy" src="media/gif/${o.gif}" alt=""><div style="flex:1;min-width:0"><div style="font-weight:500">${esc(cap(o.n))}</div><div class="small muted">${esc(m || BP_TH[o.bp] || o.bp)}</div></div></button>`; }).join('')}</div>
+    ${list.length > lib.shown ? `<button class="btn ghost block" onclick="lib.shown+=40;$('#libRows').innerHTML=libRows()">แสดงเพิ่ม</button>` : ''}`;
+}
+function drawLibrary(){
+  sheet(`<div class="sec-head"><div><div class="eyebrow">จาก openGym</div><h2>คลังท่าไม่ใช้อุปกรณ์</h2></div><button class="linkbtn" onclick="closeSheet()">ปิด</button></div>
+    <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="libQ" placeholder="ค้นหา เช่น squat, push-up, ก้น" value="${esc(lib.q)}" aria-label="ค้นหาท่า"></div>
+    <div class="chips">${[['all','ทั้งหมด'], ...Object.entries(BP_TH)].map(([k, v]) => `<button class="chip${lib.bp === k ? ' on' : ''}" onclick="lib.bp='${k}';lib.shown=40;drawLibrary()">${v}</button>`).join('')}</div>
+    <div id="libRows">${libRows()}</div>`);
+  $('#libQ').addEventListener('input', e => { lib.q = e.target.value.trim(); lib.shown = 40; $('#libRows').innerHTML = libRows(); });
 }
 
-let builderSel = [];
-function openBuilder(){
+let builderSel = [], builderOpen = false, builderName = 'โปรแกรมของฉัน';
+function openBuilder(first){
   if (!S.premium){ paywall('สร้างโปรแกรมของตัวเองเป็นฟีเจอร์ Premium'); return; }
-  builderSel = [];
+  builderSel = first ? [first] : []; builderName = 'โปรแกรมของฉัน'; builderOpen = true;
   drawBuilder();
 }
 function drawBuilder(){
+  if ($('#bName')) builderName = $('#bName').value;
   sheet(`<h2>สร้างโปรแกรมของฉัน</h2><p class="small muted">แตะท่าตามลำดับที่ต้องการ แตะซ้ำได้</p>
-    <label class="field"><span>ชื่อโปรแกรม</span><input id="bName" value="${esc($('#bName')?.value || 'โปรแกรมของฉัน')}"></label>
-    <div class="card" style="padding:10px;min-height:52px">${builderSel.length ? `<div class="chips wrap" style="flex-wrap:wrap">${builderSel.map((id, i) => `<button class="chip on" onclick="builderSel.splice(${i},1);drawBuilder()">${i + 1}. ${exById(id).th} ✕</button>`).join('')}</div>` : '<span class="small faint">ยังไม่ได้เลือกท่า</span>'}</div>
+    <label class="field"><span>ชื่อโปรแกรม</span><input id="bName" value="${esc(builderName)}"></label>
+    <div class="card" style="padding:10px;min-height:52px">${builderSel.length ? `<div class="selchips">${builderSel.map((id, i) => `<button class="chip on" onclick="builderSel.splice(${i},1);drawBuilder()">${i + 1}. ${esc(exById(id).th)} ✕</button>`).join('')}</div>` : '<span class="small faint">ยังไม่ได้เลือกท่า</span>'}</div>
+    ${builderSel.length ? bodyMap(roundsLoad(builderSel), true) : ''}
     <div class="alts">${EX.map(e => `<button class="chip" onclick="builderSel.push('${e.id}');drawBuilder()">+ ${e.th}</button>`).join('')}</div>
-    <div class="row"><button class="btn ghost" style="flex:1" onclick="closeSheet()">ยกเลิก</button><button class="btn" style="flex:2" ${builderSel.length < 3 ? 'disabled' : ''} onclick="saveBuilder()">บันทึก (${builderSel.length} ท่า)</button></div>`);
+    <button class="btn ghost block" onclick="builderName=$('#bName').value;openLibrary()">+ เลือกจากคลัง openGym (${OG.length} ท่า)</button>
+    <div class="row"><button class="btn ghost" style="flex:1" onclick="builderOpen=false;closeSheet()">ยกเลิก</button><button class="btn" style="flex:2" ${builderSel.length < 3 ? 'disabled' : ''} onclick="saveBuilder()">บันทึก (${builderSel.length} ท่า)</button></div>`);
 }
 function saveBuilder(){
+  builderOpen = false;
   const n = ($('#bName').value || 'โปรแกรมของฉัน').trim();
   S.custom.push({id:'c' + Date.now(), n, tag:'ของฉัน', color:'lime', mine:true, rounds:[...builderSel]});
   save(); closeSheet(); render(); toast('บันทึกโปรแกรมแล้ว');
@@ -532,9 +614,10 @@ function drawPlayer(){
       <div class="bar"><i style="width:${W.done / W.total * 100}%"></i></div>
     </div>
     <div class="stack" style="align-items:center">
+      ${gifOf(st.e) ? `<div class="gifbox player-gif"><img src="${gifOf(st.e)}" alt="ท่าตัวอย่าง"></div>` : ''}
       <div class="phase">${label}</div>
-      <div class="exname">${st.e.th}</div>
-      <div class="small" style="opacity:.7">${st.e.n}</div>
+      <div class="exname">${esc(st.e.th)}</div>
+      ${st.e.n !== st.e.th ? `<div class="small" style="opacity:.7">${esc(st.e.n)}</div>` : ''}
       <div class="timer num" aria-live="off">${Math.floor(W.left / 60)}:${String(W.left % 60).padStart(2, '0')}</div>
       <div class="hint">${st.kind === 'work' ? st.e.how[1] : `${st.e.how[0]} · ง่ายลง: ${st.e.easy}`}</div>
       ${st.kind === 'work' && next ? `<div class="small" style="opacity:.6">ต่อไป: ${next.e.th}</div>` : ''}
@@ -559,15 +642,16 @@ function endTimer(){ clearInterval(W.timer); try { W.lock?.release(); speechSynt
 function stopWorkout(){
   endTimer();
   const burned = Math.round(W.burned), mins = Math.max(1, Math.round(W.done / 60)), name = W.p.n;
+  const ex = W.steps.slice(0, W.i).filter(s => s.kind === 'work').map(s => s.e.id);
   W = null;
-  if (burned >= 5){ day().log.push({t:nowT(), kind:'workout', name:name + ' (บางส่วน)', burn:burned, min:mins}); award('wo1'); checkBadges(); save(); toast(`บันทึกการเผาผลาญ ${burned} kcal`); }
+  if (burned >= 5){ day().log.push({t:nowT(), kind:'workout', name:name + ' (บางส่วน)', burn:burned, min:mins, ex}); award('wo1'); checkBadges(); save(); toast(`บันทึกการเผาผลาญ ${burned} kcal`); }
   closeSheet(); tab = 'home'; render();
 }
 function finishWorkout(){
   endTimer();
   const burned = Math.round(W.burned), mins = Math.round(W.total / 60), p = W.p;
   const overBefore = totals().over;
-  day().log.push({t:nowT(), kind:'workout', name:p.n, burn:burned, min:mins, offset:!!p.offset});
+  day().log.push({t:nowT(), kind:'workout', name:p.n, burn:burned, min:mins, offset:!!p.offset, ex:p.rounds.slice()});
   award('wo1');
   let coupon = null;
   if (p.offset && overBefore > 0){
@@ -585,6 +669,7 @@ function finishWorkout(){
       <div class="timer num" style="font-size:72px">−${burned}</div>
       <div>kcal ใน ${mins} นาที · ${esc(p.n)}</div>
       ${coupon ? `<div class="coupon"><div class="small" style="font-weight:600">รางวัลจากร้านพาร์ทเนอร์</div><div style="font-family:var(--display);font-size:18px;font-weight:600">${coupon.shop}</div><div class="small">${coupon.deal}</div><div class="code num" style="margin-top:6px">${coupon.code}</div></div>` : ''}
+      <div style="width:100%"><div class="small" style="opacity:.75;margin-bottom:4px">กล้ามเนื้อที่เพิ่งฝึก</div>${bodyMap(roundsLoad(p.rounds), true)}</div>
       <div class="small" style="opacity:.75;margin-top:6px">รู้สึกอย่างไรกับความหนัก?</div>
       <div class="rpe">${[['easy','ง่ายไป'],['ok','พอดี'],['hard','หนักไป']].map(([k, v]) => `<button onclick="rate('${k}')">${v}</button>`).join('')}</div>
     </div>
@@ -667,6 +752,7 @@ function viewProgress(){
   const top = board[0].burn || 1;
   const ws = [...S.weights].sort((a, b) => a.d.localeCompare(b.d));
   const delta = ws.length > 1 ? ws[ws.length - 1].kg - ws[0].kg : 0;
+  const ML = muscleLoad(7), untrained = MUSCLES.filter(m => !ML[m] && !['tibialis','serratus','forearm'].includes(m));
   return `
   <div><h2>ความคืบหน้า</h2><p class="small muted">7 วันล่าสุด</p></div>
   <section class="tiles">
@@ -687,6 +773,12 @@ function viewProgress(){
   <section class="card stack">
     <div class="sec-head"><h3>ปฏิทินออกกำลังกาย</h3><span class="tiny faint">28 วัน</span></div>
     <div class="cal">${cal.map(k => `<div class="d${(S.days[k]?.log || []).some(l => l.kind === 'workout') ? ' hit' : ''}${k === TODAY ? ' today' : ''}" title="${k}">${+k.slice(8)}</div>`).join('')}</div>
+  </section>
+  <section class="card stack">
+    <div class="sec-head"><h3>กล้ามเนื้อที่ฝึก 7 วัน</h3><span class="tiny faint">แผนภาพจาก openGym</span></div>
+    ${bodyMap(ML)}
+    <div class="row small muted" style="gap:8px;flex-wrap:wrap"><span>น้อย</span>${[1,2,3,4].map(l => `<i class="bm-key l${l}"></i>`).join('')}<span>มาก</span></div>
+    ${untrained.length ? `<div class="small"><b>ยังไม่ได้ฝึก:</b> <span class="muted">${untrained.map(m => MUSCLE_TH[m]).join(', ')}</span></div>` : '<div class="small" style="color:var(--good)">ฝึกครบทุกส่วนแล้วสัปดาห์นี้</div>'}
   </section>
   <section class="card stack">
     <div class="sec-head"><h3>ชาเลนจ์เพื่อนสัปดาห์นี้</h3><span class="tiny faint">kcal ที่เผาผลาญ</span></div>
@@ -735,6 +827,10 @@ function viewMe(){
   <section class="card stack">
     <h3>คูปองของฉัน</h3>
     ${S.coupons.length ? S.coupons.map(c => `<div class="row between"><div><b>${esc(c.shop)}</b><div class="small muted">${esc(c.deal)}</div></div><span class="pill num">${c.code}</span></div>`).join('') : '<p class="small muted">ทำเวิร์กเอาต์ชดเชยให้ครบ เพื่อรับคูปองจากร้านพาร์ทเนอร์</p>'}
+  </section>
+  <section class="card stack small">
+    <h3>เครดิต</h3>
+    <p class="muted">คลังท่า ${OG.length} ท่า ภาพเคลื่อนไหว และแผนภาพกล้ามเนื้อ นำมาจากโปรเจกต์โอเพนซอร์ส <b>openGym</b> โดย Duarte Santos (AGPL-3.0) ซึ่งใช้ชุดข้อมูล hasaneyldrm/exercises-dataset และรูปร่างกายจาก MuscleMap โดย Melih Colpan (MIT)</p>
   </section>
   <div class="row"><button class="btn ghost" style="flex:1" onclick="resetDemo()">โหลดข้อมูลตัวอย่าง</button><button class="btn ghost" style="flex:1;color:var(--coral)" onclick="confirmWipe()">ลบข้อมูลทั้งหมด</button></div>
   <p class="demo-note">OneFit demo · ไม่มีการชำระเงินจริง ข้อมูลเก็บในเบราว์เซอร์นี้เท่านั้น</p>`;
