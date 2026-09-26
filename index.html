@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OneFit</title>
+<meta name="description" content="OneFit demo — สแกนอาหารด้วย AI คำนวณแคลอรี พร้อมมินิเวิร์กเอาต์ชดเชยส่วนเกิน">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#EEF4EF;
+  --surface:#FFFFFF;
+  --surface-2:#F4F8F4;
+  --ink:#16302A;
+  --ink-2:#4E6660;
+  --ink-3:#8AA09A;
+  --line:#DCE6DF;
+  --mint:#CFEBDD;
+  --lime:#C9E86A;
+  --lime-ink:#243300;
+  --peach:#F5C7B1;
+  --coral:#E1603F;
+  --coral-soft:#FBE3DA;
+  --good:#2F8F5B;
+  --good-soft:#DDF1E5;
+  --shadow:0 1px 2px rgba(22,48,42,.06),0 8px 24px rgba(22,48,42,.08);
+  --display:"Prompt","IBM Plex Sans Thai",system-ui,sans-serif;
+  --body:"IBM Plex Sans Thai","Prompt",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E1614;--surface:#16211E;--surface-2:#1C2926;--ink:#E6F0EB;--ink-2:#A9BDB6;--ink-3:#6F857E;
+    --line:#26352F;--mint:#1F3A30;--lime:#C9E86A;--lime-ink:#1B2600;--peach:#5A3A2C;--coral:#F07A5A;
+    --coral-soft:#3A2019;--good:#5CC48A;--good-soft:#173326;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E1614;--surface:#16211E;--surface-2:#1C2926;--ink:#E6F0EB;--ink-2:#A9BDB6;--ink-3:#6F857E;
+  --line:#26352F;--mint:#1F3A30;--lime:#C9E86A;--lime-ink:#1B2600;--peach:#5A3A2C;--coral:#F07A5A;
+  --coral-soft:#3A2019;--good:#5CC48A;--good-soft:#173326;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.55 var(--body);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--good);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+.app{max-width:440px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;background:var(--ground);position:relative}
+@media (min-width:640px){
+  body{padding-block:24px}
+  .app{min-height:calc(100% - 0px);border-radius:28px;box-shadow:var(--shadow);overflow:hidden;border:1px solid var(--line)}
+}
+header.top{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 8px}
+.brand{font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:-.01em}
+.brand span{color:var(--good)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--surface);border:1px solid var(--line);color:var(--ink-2)}
+.pill.pro{background:var(--lime);color:var(--lime-ink);border-color:transparent}
+main{flex:1;padding:4px 16px 110px;display:flex;flex-direction:column;gap:14px}
+h2{font-family:var(--display);font-weight:600;font-size:18px;margin:0;text-wrap:balance}
+h3{font-family:var(--display);font-weight:600;font-size:15px;margin:0}
+.muted{color:var(--ink-2)}
+.small{font-size:13px}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.card{background:var(--surface);border-radius:20px;padding:16px;border:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:12px}
+.between{justify-content:space-between}
+.stack{display:flex;flex-direction:column;gap:10px}
+.btn{border:0;border-radius:14px;padding:12px 16px;font-weight:600;background:var(--ink);color:var(--ground);display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.lime{background:var(--lime);color:var(--lime-ink)}
+.btn.coral{background:var(--coral);color:#fff}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn.block{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.demo-note{font-size:12px;color:var(--ink-3);text-align:center}
+
+/* home ring */
+.hero{display:grid;grid-template-columns:132px 1fr;gap:16px;align-items:center}
+.ring{position:relative;width:132px;height:132px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.ring .big{font-family:var(--display);font-weight:700;font-size:26px;line-height:1}
+.stats{display:grid;gap:8px}
+.stat{display:flex;justify-content:space-between;font-size:14px}
+.stat b{font-weight:600}
+.over-banner{background:var(--coral-soft);border:1px solid transparent;border-radius:20px;padding:14px 16px;display:flex;gap:12px;align-items:center}
+.over-banner .kc{font-family:var(--display);font-weight:700;font-size:22px;color:var(--coral)}
+.ok-banner{background:var(--good-soft);border-radius:20px;padding:14px 16px}
+
+.meal{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.meal:first-child{border-top:0}
+.thumb{width:44px;height:44px;border-radius:12px;background:var(--surface-2);display:grid;place-items:center;font-size:24px;flex:none;overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.meal .name{font-weight:500}
+.meal .kcal{margin-left:auto;font-weight:600;white-space:nowrap}
+.meal .kcal.neg{color:var(--good)}
+.x{border:0;background:none;color:var(--ink-3);padding:4px 6px;border-radius:8px}
+
+/* scan */
+.drop{border:2px dashed var(--line);border-radius:20px;padding:22px 16px;text-align:center;background:var(--surface);display:flex;flex-direction:column;gap:10px;align-items:center}
+.drop.drag{border-color:var(--good);background:var(--good-soft)}
+.cam{width:64px;height:64px;border-radius:20px;background:var(--lime);display:grid;place-items:center}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.search input{border:0;background:transparent;outline:none;flex:1;min-width:0}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.grid-foods{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.food{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;text-align:left;display:flex;flex-direction:column;gap:4px}
+.food .e{font-size:28px;line-height:1}
+.food .n{font-weight:500;font-size:14px;line-height:1.35}
+.food .k{font-size:12px;color:var(--ink-2)}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,20,17,.45);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:var(--surface);width:100%;max-width:440px;border-radius:24px 24px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));max-height:92%;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.grab{width:40px;height:4px;border-radius:4px;background:var(--line);margin:0 auto}
+.photo{width:100%;aspect-ratio:4/3;max-width:100%;border-radius:16px;background:var(--surface-2);display:grid;place-items:center;font-size:84px;overflow:hidden;position:relative}
+.photo img{width:100%;height:100%;object-fit:cover}
+.scanline{position:absolute;left:0;right:0;height:3px;background:var(--lime);box-shadow:0 0 18px 4px var(--lime);animation:scan 1.3s ease-in-out infinite alternate}
+@keyframes scan{from{top:6%}to{top:92%}}
+.ing{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.ing:last-child{border-bottom:0}
+.macro{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.macro div{background:var(--surface-2);border-radius:12px;padding:8px;text-align:center}
+.macro b{display:block;font-family:var(--display);font-size:16px}
+.alts{display:flex;gap:8px;flex-wrap:wrap}
+input[type=range]{width:100%;accent-color:var(--good)}
+.conf{height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden}
+.conf i{display:block;height:100%;background:var(--good)}
+
+/* workout */
+.focus{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.focus button{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:10px 4px;font-size:13px;position:relative}
+.focus button.on{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.lock{position:absolute;top:-8px;right:-4px;font-size:9px;font-weight:700;background:var(--lime);color:var(--lime-ink);border-radius:6px;padding:1px 5px}
+.ex{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.ex:first-child{border-top:0}
+.ex .idx{width:28px;height:28px;border-radius:9px;background:var(--mint);display:grid;place-items:center;font-size:13px;font-weight:600;flex:none}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.summary div{background:var(--surface-2);border-radius:14px;padding:10px;text-align:center}
+.summary b{display:block;font-family:var(--display);font-size:20px}
+
+.player{position:fixed;inset:0;background:var(--ink);color:var(--ground);z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(24px + env(safe-area-inset-top,0px)) 20px calc(28px + env(safe-area-inset-bottom,0px));text-align:center}
+.player .phase{font-size:13px;letter-spacing:.1em;text-transform:uppercase;opacity:.7}
+.player .exname{font-family:var(--display);font-size:30px;font-weight:700;text-wrap:balance}
+.player .timer{font-family:var(--display);font-weight:700;font-size:96px;line-height:1}
+.player .bar{width:100%;max-width:400px;height:6px;border-radius:6px;background:rgba(255,255,255,.15);overflow:hidden}
+.player .bar i{display:block;height:100%;background:var(--lime);transition:width .3s}
+.player .ctl{display:flex;gap:10px;width:100%;max-width:400px}
+.player .ctl .btn{flex:1}
+.player .btn.ghost{color:var(--ground);border-color:rgba(255,255,255,.25)}
+.player.rest{background:#2B4C43}
+.coupon{border:2px dashed var(--lime-ink);background:var(--lime);color:var(--lime-ink);border-radius:18px;padding:16px;text-align:left;width:100%;max-width:400px}
+.coupon .code{font-family:var(--display);font-size:22px;font-weight:700;letter-spacing:.06em}
+
+/* premium */
+.plan{border:1px solid var(--line);border-radius:18px;padding:14px;background:var(--surface)}
+.plan.pro{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.plan .price{font-family:var(--display);font-size:28px;font-weight:700}
+.plan ul{margin:8px 0 0;padding-left:18px}
+.plan li{margin:3px 0}
+.field{display:flex;flex-direction:column;gap:4px}
+.field input,.field select{border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:10px 12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* tab bar */
+nav.tabs{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:440px;display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));z-index:10}
+@media (min-width:640px){nav.tabs{bottom:24px;border-radius:0 0 28px 28px}}
+nav.tabs button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--ink-3);padding:4px}
+nav.tabs button svg{width:22px;height:22px}
+nav.tabs button.on{color:var(--ink)}
+nav.tabs .scanbtn{margin-top:-22px}
+nav.tabs .scanbtn span.fab{width:52px;height:52px;border-radius:18px;background:var(--lime);color:var(--lime-ink);display:grid;place-items:center;box-shadow:var(--shadow)}
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ink);color:var(--ground);padding:10px 16px;border-radius:12px;font-size:14px;z-index:25;max-width:calc(100% - 32px);text-align:center}
+@media (prefers-reduced-motion:reduce){.scanline{animation:none;top:50%}*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">One<span>Fit</span></div>
+    <div class="row" style="gap:8px">
+      <span class="pill num" id="scanPill"></span>
+      <span class="pill" id="planPill"></span>
+    </div>
+  </header>
+  <main id="view"></main>
+  <nav class="tabs" id="tabs">
+    <button data-tab="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>วันนี้</button>
+    <button data-tab="scan" class="scanbtn"><span class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.5"/></svg></span>สแกน</button>
+    <button data-tab="workout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/></svg>เวิร์กเอาต์</button>
+    <button data-tab="me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>โปรไฟล์</button>
+  </nav>
+</div>
+<div id="overlay"></div>
+
+<script>
+/* ---------- Food database (kcal per standard serving) ---------- */
+const FOODS = [
+  {id:'kmk', n:'ข้าวมันไก่', e:'🍗', c:'street', k:596, m:[22,68,24], ing:[['ข้าวมัน 1 จาน',350],['ไก่ต้ม 90 ก.',180],['น้ำจิ้มเต้าเจี้ยว',40],['ซุปฟัก + แตงกวา',26]]},
+  {id:'kpr', n:'กะเพราหมูสับไข่ดาว', e:'🍳', c:'street', k:630, m:[28,70,26], ing:[['ข้าวสวย 1 ทัพพีครึ่ง',240],['หมูสับผัดกะเพรา',220],['ไข่ดาว',130],['น้ำมัน + ซอส',40]]},
+  {id:'ptk', n:'ผัดไทยกุ้งสด', e:'🍤', c:'street', k:545, m:[20,74,19], ing:[['เส้นจันท์ผัด',300],['กุ้ง 4 ตัว',60],['ไข่ + เต้าหู้',110],['น้ำมะขาม + น้ำตาล',75]]},
+  {id:'stm', n:'ส้มตำไทย', e:'🥗', c:'street', k:120, m:[3,24,2], ing:[['มะละกอ',40],['น้ำปลา + น้ำตาลปี๊บ',50],['ถั่วลิสง + กุ้งแห้ง',30]]},
+  {id:'kpm', n:'ข้าวผัดหมู', e:'🍚', c:'street', k:560, m:[18,72,21], ing:[['ข้าวผัด',380],['หมูชิ้น',110],['ไข่',70]]},
+  {id:'krs', n:'ก๋วยเตี๋ยวเรือ', e:'🍜', c:'street', k:350, m:[18,42,11], ing:[['เส้นเล็ก',180],['หมู + ลูกชิ้น',110],['น้ำซุปข้น',60]]},
+  {id:'mpk', n:'หมูปิ้ง 3 ไม้ + ข้าวเหนียว', e:'🍢', c:'street', k:520, m:[21,60,21], ing:[['ข้าวเหนียว 1 ห่อ',250],['หมูปิ้ง 3 ไม้',270]]},
+  {id:'jok', n:'โจ๊กหมูใส่ไข่', e:'🥣', c:'street', k:300, m:[16,38,9], ing:[['โจ๊ก',170],['หมูสับ',70],['ไข่ลวก',60]]},
+  {id:'ktm', n:'ข้าวเหนียวมะม่วง', e:'🥭', c:'street', k:480, m:[6,86,13], ing:[['ข้าวเหนียวมูน',300],['มะม่วงสุก',110],['กะทิราด',70]]},
+  {id:'roti', n:'โรตีกล้วยนมข้น', e:'🫓', c:'street', k:450, m:[7,58,21], ing:[['แป้งโรตีทอด',260],['กล้วยหอม',80],['นมข้นหวาน + น้ำตาล',110]]},
+  {id:'thai', n:'ชาไทยเย็น 22 oz', e:'🧋', c:'cafe', k:350, m:[5,60,10], ing:[['ชาไทย',10],['นมข้นหวาน',210],['นมข้นจืด + น้ำตาล',130]]},
+  {id:'boba', n:'ชานมไข่มุก', e:'🧋', c:'cafe', k:450, m:[4,82,12], ing:[['ชานม',200],['ไข่มุก',160],['น้ำเชื่อม',90]]},
+  {id:'latte', n:'ลาเต้เย็น (นมสด)', e:'☕', c:'cafe', k:190, m:[9,18,8], ing:[['เอสเปรสโซ่',5],['นมสด 240 มล.',150],['ไซรัป',35]]},
+  {id:'croi', n:'ครัวซองต์เนยสด', e:'🥐', c:'cafe', k:270, m:[5,28,15], ing:[['แป้ง',140],['เนยสด',130]]},
+  {id:'chz', n:'ชีสเค้ก 1 ชิ้น', e:'🍰', c:'cafe', k:400, m:[7,32,28], ing:[['ครีมชีส',230],['ฐานบิสกิต',110],['น้ำตาล',60]]},
+  {id:'bing', n:'บิงซูสตรอว์เบอร์รี', e:'🍧', c:'cafe', k:520, m:[9,95,11], ing:[['น้ำแข็งนม',260],['สตรอว์เบอร์รี + ซอส',160],['ชีสเค้กท็อปปิ้ง',100]]},
+  {id:'mkt', n:'หมูกระทะ (1 รอบบุฟเฟต์)', e:'🥓', c:'buffet', k:920, m:[48,40,62], ing:[['หมูสามชั้น',420],['หมูหมัก + ตับ',260],['วุ้นเส้น + ผัก',120],['น้ำจิ้มสุกี้',120]]},
+  {id:'shabu', n:'ชาบู (1 รอบบุฟเฟต์)', e:'🍲', c:'buffet', k:750, m:[46,55,34], ing:[['เนื้อสไลซ์',360],['ลูกชิ้น + เต้าหู้',180],['ผัก + เห็ด',60],['น้ำจิ้ม',150]]},
+  {id:'sushi', n:'ซูชิแซลมอน 8 คำ', e:'🍣', c:'buffet', k:380, m:[18,56,8], ing:[['ข้าวซูชิ',260],['แซลมอน',120]]},
+  {id:'pizza', n:'พิซซ่า 2 ชิ้น', e:'🍕', c:'fast', k:570, m:[24,64,24], ing:[['แป้งพิซซ่า',300],['ชีส',170],['ท็อปปิ้ง',100]]},
+  {id:'burger', n:'ชีสเบอร์เกอร์', e:'🍔', c:'fast', k:540, m:[28,40,29], ing:[['ขนมปัง',160],['เนื้อบด',250],['ชีส + ซอส',130]]},
+  {id:'fch', n:'ไก่ทอด 2 ชิ้น', e:'🍗', c:'fast', k:480, m:[36,16,30], ing:[['ไก่',300],['แป้งทอด + น้ำมัน',180]]},
+  {id:'salad', n:'สลัดอกไก่', e:'🥗', c:'clean', k:280, m:[32,12,11], ing:[['อกไก่ย่าง 120 ก.',165],['ผักรวม',35],['น้ำสลัดงา',80]]},
+  {id:'yum', n:'ต้มยำกุ้งน้ำใส', e:'🍲', c:'clean', k:160, m:[18,8,5], ing:[['กุ้ง 5 ตัว',90],['เห็ด + สมุนไพร',30],['น้ำซุป',40]]},
+];
+const CATS = [['all','ทั้งหมด'],['street','สตรีทฟู้ด'],['cafe','คาเฟ่'],['buffet','บุฟเฟต์'],['fast','ฟาสต์ฟู้ด'],['clean','คลีน']];
+const byId = id => FOODS.find(f=>f.id===id);
+
+/* ---------- Exercises (bodyweight, MET values from Compendium of Physical Activities) ---------- */
+const EX = [
+  {id:'jj', n:'Jumping Jacks', th:'กระโดดตบ', met:8, f:['full']},
+  {id:'hk', n:'High Knees', th:'วิ่งยกเข่าสูง', met:8, f:['full','legs','core']},
+  {id:'mc', n:'Mountain Climbers', th:'ปีนเขา', met:8, f:['core','full']},
+  {id:'bp', n:'Burpees', th:'เบอร์ปี', met:8, f:['full']},
+  {id:'sj', n:'Squat Jumps', th:'สควอตกระโดด', met:8, f:['legs','full']},
+  {id:'sk', n:'Skaters', th:'สเก็ตเตอร์', met:7, f:['legs','full']},
+  {id:'sq', n:'Bodyweight Squats', th:'สควอต', met:5, f:['legs']},
+  {id:'lg', n:'Alternating Lunges', th:'ลันจ์สลับขา', met:4, f:['legs']},
+  {id:'gb', n:'Glute Bridges', th:'ยกสะโพก', met:3.5, f:['legs']},
+  {id:'bc', n:'Bicycle Crunches', th:'ปั่นจักรยานอากาศ', met:4, f:['core']},
+  {id:'pl', n:'Plank Jacks', th:'แพลงก์แจ็ก', met:6, f:['core']},
+  {id:'pu', n:'Push-ups', th:'วิดพื้น', met:3.8, f:['arms']},
+  {id:'td', n:'Tricep Dips (เก้าอี้)', th:'ดิปแขนกับเก้าอี้', met:3.8, f:['arms']},
+  {id:'ip', n:'Inchworm to Push-up', th:'อินช์เวิร์ม', met:5, f:['arms','full']},
+];
+const FOCUS = [['full','ทั้งตัว',false],['core','หน้าท้อง',true],['legs','ต้นขา',true],['arms','แขน',true]];
+const WORK = 40, REST = 20; // seconds
+
+/* ---------- State ---------- */
+const today = () => new Date().toISOString().slice(0,10);
+const DEFAULT = () => ({
+  day: today(), premium:false, goal:1600, weight:60, scansUsed:2, focus:'full',
+  log:[
+    {t:'08:10', id:'jok', q:1, kind:'food'},
+    {t:'12:35', id:'kpr', q:1, kind:'food'},
+    {t:'15:20', id:'bing', q:1, kind:'food'},
+    {t:'16:05', id:'thai', q:1, kind:'food'},
+  ],
+  coupons:[], sample:true
+});
+let S;
+try { S = JSON.parse(localStorage.getItem('onefit')||'null'); } catch(e){ S=null; }
+if(!S) S = DEFAULT();
+if(S.day !== today()){ S.day = today(); S.scansUsed = 0; S.log = []; S.sample=false; }
+const save = () => { try{ localStorage.setItem('onefit', JSON.stringify(S)); }catch(e){} };
+const FREE_SCANS = 5;
+let tab = 'home', cat = 'all', q = '';
+
+/* ---------- Helpers ---------- */
+const $ = s => document.querySelector(s);
+const fmt = n => Math.round(n).toLocaleString('th-TH');
+const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const kcalPerMin = met => met*3.5*S.weight/200;
+function entryKcal(l){ return l.kind==='food' ? (l.custom?l.custom.k:byId(l.id).k)*l.q : -l.burn; }
+const totals = () => {
+  let food=0, burn=0;
+  S.log.forEach(l=>{ if(l.kind==='food') food+=entryKcal(l); else burn+=l.burn; });
+  return {food, burn, net: food-burn, over: Math.max(0, food-burn-S.goal)};
+};
+const nowT = () => new Date().toTimeString().slice(0,5);
+function toast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2200); }
+const scansLeft = () => S.premium ? Infinity : Math.max(0, FREE_SCANS - S.scansUsed);
+
+function renderHeader(){
+  $('#scanPill').textContent = S.premium ? 'สแกนไม่จำกัด' : `สแกน ${scansLeft()}/${FREE_SCANS}`;
+  const p = $('#planPill'); p.textContent = S.premium ? 'Premium' : 'Free'; p.className = 'pill'+(S.premium?' pro':'');
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on', b.dataset.tab===tab));
+}
+
+/* ---------- Views ---------- */
+function viewHome(){
+  const T = totals(), pct = Math.min(1, T.net/S.goal), over = T.over>0;
+  const R=56, C=2*Math.PI*R;
+  const meals = S.log.map((l,i)=>{
+    if(l.kind==='food'){
+      const f = l.custom || byId(l.id);
+      const th = l.img ? `<img src="${l.img}" alt="">` : f.e;
+      return `<div class="meal"><div class="thumb">${th}</div><div><div class="name">${esc(f.n)}${l.q!==1?` <span class="muted small">×${l.q}</span>`:''}</div><div class="small muted">${l.t}</div></div><div class="kcal num">${fmt(entryKcal(l))} kcal</div><button class="x" aria-label="ลบ" onclick="delLog(${i})">✕</button></div>`;
+    }
+    return `<div class="meal"><div class="thumb" style="background:var(--good-soft)">🔥</div><div><div class="name">มินิเวิร์กเอาต์ ${l.min} นาที</div><div class="small muted">${l.t} · ชดเชยส่วนเกิน</div></div><div class="kcal neg num">−${fmt(l.burn)} kcal</div><button class="x" aria-label="ลบ" onclick="delLog(${i})">✕</button></div>`;
+  }).join('') || `<p class="muted small" style="margin:0">ยังไม่มีมื้ออาหารวันนี้ กดปุ่มสแกนด้านล่างเพื่อเริ่มบันทึก</p>`;
+  return `
+  ${S.sample?`<div class="demo-note">ข้อมูลตัวอย่างสำหรับเดโม · <button class="x" style="text-decoration:underline" onclick="clearSample()">ล้างข้อมูล</button></div>`:''}
+  <section class="card hero">
+    <div class="ring">
+      <svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="${R}" fill="none" stroke="var(--surface-2)" stroke-width="12"/>
+      <circle cx="66" cy="66" r="${R}" fill="none" stroke="${over?'var(--coral)':'var(--good)'}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-Math.max(0,pct))}"/></svg>
+      <div class="center"><div class="big num" style="color:${over?'var(--coral)':'var(--ink)'}">${fmt(over?T.over:S.goal-T.net)}</div><div class="small muted">${over?'kcal เกินเป้า':'kcal เหลือ'}</div></div>
+    </div>
+    <div class="stats">
+      <div class="eyebrow">วันนี้</div>
+      <div class="stat"><span class="muted">เป้าหมาย</span><b class="num">${fmt(S.goal)}</b></div>
+      <div class="stat"><span class="muted">กินไป</span><b class="num">${fmt(T.food)}</b></div>
+      <div class="stat"><span class="muted">เผาผลาญชดเชย</span><b class="num" style="color:var(--good)">−${fmt(T.burn)}</b></div>
+      <div class="stat"><span class="muted">สุทธิ</span><b class="num">${fmt(T.net)}</b></div>
+    </div>
+  </section>
+  ${over?`<section class="over-banner">
+      <div style="flex:1"><div class="small muted">กินเกินเป้าไป</div><div class="kc num">${fmt(T.over)} kcal</div><div class="small muted">ไม่ต้องรู้สึกผิด มาเผาผลาญส่วนเกินกันใน 10–15 นาที</div></div>
+      <button class="btn coral" onclick="go('workout')">ชดเชยเลย</button>
+    </section>`:`<section class="ok-banner small"><b>อยู่ในเป้าหมาย</b> · กินของชอบได้อีก ${fmt(S.goal-T.net)} kcal วันนี้</section>`}
+  <section class="card">
+    <div class="row between" style="margin-bottom:6px"><h2>มื้อวันนี้</h2><button class="btn ghost" style="padding:6px 12px" onclick="go('scan')">+ เพิ่ม</button></div>
+    ${meals}
+  </section>`;
+}
+
+function viewScan(){
+  const list = FOODS.filter(f=>(cat==='all'||f.c===cat) && (!q || f.n.includes(q)));
+  const left = scansLeft();
+  return `
+  <div><h2>สแกนอาหาร</h2><p class="muted small" style="margin:2px 0 0">ถ่ายรูปอาหารอะไรก็ได้ AI จะประเมินส่วนผสมและแคลอรีให้</p></div>
+  <label class="drop" id="drop" for="file">
+    <div class="cam"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--lime-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div>
+    <b>ถ่ายรูป / อัปโหลดรูปอาหาร</b>
+    <span class="small muted">${left===Infinity?'Premium: สแกนได้ไม่จำกัด':`เหลือสิทธิ์สแกนฟรี ${left} มื้อวันนี้`}</span>
+    <input type="file" id="file" accept="image/*" capture="environment" hidden>
+  </label>
+  <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" placeholder="หรือค้นหาเมนู เช่น ชาไทย, หมูกระทะ" value="${esc(q)}"></div>
+  <div class="chips">${CATS.map(([k,v])=>`<button class="chip${cat===k?' on':''}" onclick="setCat('${k}')">${v}</button>`).join('')}</div>
+  <div class="eyebrow">ลองสแกนเมนูตัวอย่าง</div>
+  <div class="grid-foods">${list.map(f=>`<button class="food" onclick="startScan('${f.id}')"><span class="e">${f.e}</span><span class="n">${f.n}</span><span class="k num">~${fmt(f.k)} kcal</span></button>`).join('') || '<p class="muted small">ไม่พบเมนูนี้</p>'}</div>`;
+}
+
+function buildPlan(target){
+  const pool = EX.filter(e=>e.f.includes(S.focus));
+  const sorted = [...pool].sort((a,b)=>b.met-a.met);
+  const perRound = (WORK+REST)/60;
+  let rounds = [], burn = 0, i = 0;
+  while(rounds.length < 15){ // 15 × 1 min = 15 min cap
+    const e = sorted[i % sorted.length]; i++;
+    rounds.push(e); burn += kcalPerMin(e.met)*WORK/60 + kcalPerMin(2.5)*REST/60;
+    if(rounds.length >= 10 && burn >= target) break; // minimum 10 min
+  }
+  return {rounds, burn, min: Math.round(rounds.length*perRound)};
+}
+
+function viewWorkout(){
+  const T = totals();
+  const target = T.over || 80;
+  const P = buildPlan(target);
+  const covered = Math.min(P.burn, target);
+  const grouped = [];
+  P.rounds.forEach(e=>{ const g = grouped.find(x=>x.e===e); g? g.n++ : grouped.push({e,n:1}); });
+  return `
+  <div><h2>มินิเวิร์กเอาต์ชดเชย</h2><p class="muted small" style="margin:2px 0 0">${T.over?`จัดให้อัตโนมัติจากแคลอรีที่เกินเป้า ${fmt(T.over)} kcal`:'วันนี้ยังไม่เกินเป้า ลองเซสชันสั้น ๆ เผาผลาญล่วงหน้าได้'} · ไม่ต้องใช้อุปกรณ์</p></div>
+  <section class="card stack">
+    <div class="eyebrow">โฟกัสส่วนที่อยากกระชับ</div>
+    <div class="focus">${FOCUS.map(([k,v,pro])=>`<button class="${S.focus===k?'on':''}" onclick="setFocus('${k}',${pro})">${v}${pro&&!S.premium?'<span class="lock">PRO</span>':''}</button>`).join('')}</div>
+  </section>
+  <section class="summary">
+    <div><b class="num">${P.min}</b><span class="small muted">นาที</span></div>
+    <div><b class="num">${fmt(P.burn)}</b><span class="small muted">kcal (ประมาณ)</span></div>
+    <div><b class="num">${P.rounds.length}</b><span class="small muted">รอบ (40/20 วิ)</span></div>
+  </section>
+  ${T.over && P.burn < target ? `<p class="small muted" style="margin:0">เซสชันนี้ชดเชยได้ ~${fmt(covered)} จาก ${fmt(target)} kcal ส่วนที่เหลือแนะนำให้เดินเพิ่มหรือทำอีกเซสชันตอนเย็น</p>`:''}
+  <section class="card">
+    ${grouped.map((g,i)=>`<div class="ex"><div class="idx num">${i+1}</div><div style="flex:1"><div style="font-weight:500">${g.e.th}</div><div class="small muted">${g.e.n}</div></div><div class="small muted num">${g.n} × 40 วิ</div></div>`).join('')}
+  </section>
+  <button class="btn lime block" onclick="startWorkout()">เริ่มเวิร์กเอาต์ ${P.min} นาที</button>
+  <p class="demo-note">ค่าแคลอรีคำนวณจาก MET × น้ำหนัก ${S.weight} กก. เป็นค่าประมาณ</p>`;
+}
+
+function viewMe(){
+  return `
+  <div><h2>โปรไฟล์และแพ็กเกจ</h2></div>
+  <section class="card stack">
+    <div class="two">
+      <label class="field"><span class="small muted">เป้าหมายแคลอรี/วัน</span><input id="goal" type="number" min="1000" max="4000" step="50" value="${S.goal}"></label>
+      <label class="field"><span class="small muted">น้ำหนัก (กก.)</span><input id="weight" type="number" min="30" max="200" value="${S.weight}"></label>
+    </div>
+  </section>
+  <section class="stack">
+    <div class="plan${S.premium?'':' '}">
+      <div class="row between"><h3>Free</h3>${!S.premium?'<span class="pill">แพ็กเกจปัจจุบัน</span>':''}</div>
+      <div class="price num">0 ฿</div>
+      <ul class="small"><li>สแกนอาหาร 5 มื้อ/วัน</li><li>มินิเวิร์กเอาต์ชดเชยแบบทั้งตัว</li></ul>
+    </div>
+    <div class="plan pro">
+      <div class="row between"><h3 style="color:var(--lime)">Premium</h3>${S.premium?'<span class="pill pro">แพ็กเกจปัจจุบัน</span>':''}</div>
+      <div class="price num">89 ฿<span class="small" style="font-weight:400;opacity:.7"> / เดือน</span></div>
+      <ul class="small"><li>สแกนอาหารไม่จำกัด</li><li>เวิร์กเอาต์ชดเชยเฉพาะจุด: หน้าท้อง ต้นขา แขน</li><li>คูปองส่วนลดอาหารคลีนจากร้านพาร์ทเนอร์</li></ul>
+      <button class="btn ${S.premium?'ghost':'lime'} block" style="margin-top:12px;${S.premium?'color:var(--ground);border-color:rgba(255,255,255,.3)':''}" onclick="togglePremium()">${S.premium?'ยกเลิก Premium (เดโม)':'อัปเกรด Premium (เดโม)'}</button>
+    </div>
+  </section>
+  <section class="card stack">
+    <h3>ชวนเพื่อน รับ Premium ฟรี 1 เดือน</h3>
+    <div class="row"><div class="search" style="flex:1"><input id="ref" readonly value="ONEFIT-MISHA89"></div><button class="btn ghost" onclick="copyRef()">คัดลอก</button></div>
+  </section>
+  <section class="card stack">
+    <h3>คูปองของฉัน</h3>
+    ${S.coupons.length? S.coupons.map(c=>`<div class="row between"><div><b>${esc(c.shop)}</b><div class="small muted">${esc(c.deal)}</div></div><span class="pill num">${c.code}</span></div>`).join('') : '<p class="small muted" style="margin:0">ทำเวิร์กเอาต์ชดเชยให้ครบ เพื่อรับคูปองจากร้านพาร์ทเนอร์</p>'}
+  </section>
+  <button class="btn ghost block" onclick="resetAll()">รีเซ็ตข้อมูลเดโม</button>
+  <p class="demo-note">OneFit demo · ไม่มีการชำระเงินจริง ข้อมูลเก็บในเบราว์เซอร์นี้เท่านั้น</p>`;
+}
+
+function render(){
+  renderHeader();
+  const v = {home:viewHome, scan:viewScan, workout:viewWorkout, me:viewMe}[tab]();
+  $('#view').innerHTML = v;
+  if(tab==='scan') bindScan();
+  if(tab==='me') bindMe();
+}
+
+/* ---------- Actions ---------- */
+function go(t){ tab=t; render(); window.scrollTo(0,0); }
+function setCat(c){ cat=c; render(); }
+function delLog(i){ S.log.splice(i,1); save(); render(); }
+function clearSample(){ S.log=[]; S.scansUsed=0; S.sample=false; save(); render(); }
+function resetAll(){ S = DEFAULT(); save(); tab='home'; render(); toast('รีเซ็ตข้อมูลเดโมแล้ว'); }
+function togglePremium(){ S.premium=!S.premium; if(!S.premium && S.focus!=='full') S.focus='full'; save(); render(); toast(S.premium?'เปิดใช้ Premium แล้ว':'กลับเป็นแพ็กเกจ Free'); }
+function setFocus(k,pro){ if(pro && !S.premium){ paywall('เวิร์กเอาต์เฉพาะจุดเป็นฟีเจอร์ Premium'); return; } S.focus=k; save(); render(); }
+function copyRef(){ const i=$('#ref'); const done=()=>toast('คัดลอกโค้ดแล้ว'); try{ navigator.clipboard.writeText(i.value).then(done,()=>{i.select();}); }catch(e){ i.select(); } }
+
+function bindScan(){
+  const qi = $('#q');
+  qi.addEventListener('input', e=>{ q=e.target.value.trim(); const pos=qi.selectionStart; render(); const n=$('#q'); n.focus(); n.setSelectionRange(pos,pos); });
+  const f = $('#file'), d = $('#drop');
+  f.addEventListener('change', ()=>{ if(f.files[0]) readImg(f.files[0]); });
+  d.addEventListener('dragover', e=>{ e.preventDefault(); d.classList.add('drag'); });
+  d.addEventListener('dragleave', ()=>d.classList.remove('drag'));
+  d.addEventListener('drop', e=>{ e.preventDefault(); d.classList.remove('drag'); const file=e.dataTransfer.files[0]; if(file && file.type.startsWith('image/')) readImg(file); });
+}
+function bindMe(){
+  $('#goal').addEventListener('change', e=>{ const v=+e.target.value; if(v>=1000&&v<=4000){S.goal=v; save(); renderHeader(); toast('บันทึกเป้าหมายแล้ว');} });
+  $('#weight').addEventListener('change', e=>{ const v=+e.target.value; if(v>=30&&v<=200){S.weight=v; save(); toast('บันทึกน้ำหนักแล้ว');} });
+}
+
+function readImg(file){
+  if(scansLeft()<=0){ paywall('ใช้สิทธิ์สแกนฟรีครบ 5 มื้อแล้ววันนี้'); return; }
+  const r = new FileReader();
+  r.onload = () => shrink(r.result, small => {
+    // Demo: pick candidates from image colour profile (stand-in for the real vision model)
+    guessFromImage(small, ids => startScan(ids[0], small, ids));
+  });
+  r.readAsDataURL(file);
+}
+function shrink(src, cb){
+  const im = new Image();
+  im.onload = () => { const s=320/Math.max(im.width,im.height); const c=document.createElement('canvas'); c.width=Math.round(im.width*Math.min(1,s)); c.height=Math.round(im.height*Math.min(1,s)); c.getContext('2d').drawImage(im,0,0,c.width,c.height); cb(c.toDataURL('image/jpeg',.8)); };
+  im.onerror = () => cb(src);
+  im.src = src;
+}
+function guessFromImage(src, cb){
+  const im = new Image();
+  im.onload = () => {
+    const c=document.createElement('canvas'); c.width=c.height=16; const x=c.getContext('2d'); x.drawImage(im,0,0,16,16);
+    const d=x.getImageData(0,0,16,16).data; let r=0,g=0,b=0; for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];}
+    const n=d.length/4; r/=n; g/=n; b/=n;
+    let pool;
+    if(g>r && g>b) pool=['salad','stm','yum','kpr'];
+    else if(r>150 && g>120 && b<110) pool=['ptk','mpk','croi','fch','ktm','roti'];
+    else if(r>g+25) pool=['mkt','kpr','pizza','bing','shabu','sushi'];
+    else if(b>r) pool=['boba','latte','thai','shabu'];
+    else pool=['kmk','kpm','krs','jok','burger','chz'];
+    const seed=Math.round(r+g*3+b*7);
+    const rot=pool.map((_,i)=>pool[(i+seed)%pool.length]);
+    cb(rot.slice(0,4));
+  };
+  im.onerror = () => cb(['kmk','kpr','ptk','kpm']);
+  im.src = src;
+}
+
+function startScan(id, img, alts){
+  if(!img && scansLeft()<=0){ paywall('ใช้สิทธิ์สแกนฟรีครบ 5 มื้อแล้ววันนี้'); return; }
+  const f = byId(id);
+  $('#overlay').innerHTML = `<div class="scrim"><div class="sheet"><div class="grab"></div>
+    <div class="photo">${img?`<img src="${img}" alt="รูปอาหาร">`:f.e}<div class="scanline"></div></div>
+    <div style="text-align:center"><h2>AI กำลังวิเคราะห์อาหาร…</h2><p class="small muted" style="margin:4px 0 0">ตรวจจับวัตถุดิบ · เทียบฐานข้อมูลอาหาร · ประเมินปริมาณ</p></div>
+  </div></div>`;
+  setTimeout(()=>{ S.scansUsed++; S.sample=false; save(); renderHeader(); showResult(id, img, alts); }, 1600);
+}
+
+function showResult(id, img, alts){
+  const f = byId(id);
+  const conf = img ? 72 + (id.length*7)%18 : 94;
+  let qty = 1;
+  const draw = () => {
+    $('#overlay').innerHTML = `<div class="scrim" onclick="if(event.target===this)closeSheet()"><div class="sheet"><div class="grab"></div>
+      <div class="photo" style="aspect-ratio:16/9">${img?`<img src="${img}" alt="รูปอาหาร">`:f.e}</div>
+      <div class="row between"><div><div class="eyebrow">AI ตรวจพบ</div><h2>${f.n}</h2></div><div style="text-align:right"><div class="big num" style="font-family:var(--display);font-weight:700;font-size:26px">${fmt(f.k*qty)}</div><div class="small muted">kcal</div></div></div>
+      <div><div class="row between small"><span class="muted">ความมั่นใจ</span><span class="num">${conf}%</span></div><div class="conf"><i style="width:${conf}%"></i></div></div>
+      ${alts?`<div class="stack" style="gap:6px"><span class="small muted">ไม่ใช่เมนูนี้? เลือกที่ถูกต้อง</span><div class="alts">${alts.filter(a=>a!==id).map(a=>`<button class="chip" data-alt="${a}">${byId(a).e} ${byId(a).n}</button>`).join('')}</div></div>`:''}
+      <div class="macro"><div><b class="num">${Math.round(f.m[0]*qty)} ก.</b><span class="small muted">โปรตีน</span></div><div><b class="num">${Math.round(f.m[1]*qty)} ก.</b><span class="small muted">คาร์บ</span></div><div><b class="num">${Math.round(f.m[2]*qty)} ก.</b><span class="small muted">ไขมัน</span></div></div>
+      <div><div class="eyebrow" style="margin-bottom:4px">ส่วนผสมที่ประเมินได้</div>${f.ing.map(([n,k])=>`<div class="ing"><span>${n}</span><span class="num muted">${fmt(k*qty)} kcal</span></div>`).join('')}</div>
+      <label class="field"><span class="row between small"><span class="muted">ปริมาณที่กิน</span><b class="num" id="qv">${qty}×</b></span><input type="range" id="qty" min="0.5" max="2" step="0.25" value="${qty}"></label>
+      <div class="row"><button class="btn ghost" style="flex:1" onclick="closeSheet()">ยกเลิก</button><button class="btn block" style="flex:2" id="addBtn">บันทึกมื้อนี้</button></div>
+      ${img?'<p class="demo-note" style="margin:0">โหมดเดโม: ผลจาก AI เป็นการจำลอง ในแอปจริงใช้โมเดล Computer Vision</p>':''}
+    </div></div>`;
+    $('#qty').addEventListener('input', e=>{ qty=+e.target.value; draw(); });
+    document.querySelectorAll('[data-alt]').forEach(b=>b.onclick=()=>showResult(b.dataset.alt, img, alts));
+    $('#addBtn').onclick = () => {
+      const before = totals().over;
+      S.log.push({t:nowT(), id:f.id, q:qty, kind:'food', img: img||undefined});
+      save(); closeSheet();
+      const after = totals().over;
+      if(after>before){ tab='home'; render(); toast(`เกินเป้า ${fmt(after)} kcal · มีมินิเวิร์กเอาต์รออยู่`); }
+      else { tab='home'; render(); toast(`บันทึก ${f.n} แล้ว`); }
+    };
+  };
+  draw();
+}
+function closeSheet(){ $('#overlay').innerHTML=''; }
+
+function paywall(reason){
+  $('#overlay').innerHTML = `<div class="scrim" onclick="if(event.target===this)closeSheet()"><div class="sheet"><div class="grab"></div>
+    <div class="eyebrow">OneFit Premium</div><h2>${reason}</h2>
+    <p class="muted" style="margin:0">อัปเกรดเป็น Premium เพื่อสแกนอาหารไม่จำกัด และเลือกเวิร์กเอาต์ชดเชยเฉพาะจุด (หน้าท้อง / ต้นขา / แขน)</p>
+    <div class="plan pro"><div class="price num">89 ฿<span class="small" style="font-weight:400;opacity:.7"> / เดือน</span></div><div class="small" style="opacity:.8">หรือชวนเพื่อน 1 คน ใช้ฟรี 1 เดือน</div></div>
+    <div class="row"><button class="btn ghost" style="flex:1" onclick="closeSheet()">ไว้ก่อน</button><button class="btn lime" style="flex:2" onclick="S.premium=true;save();closeSheet();render();toast('เปิดใช้ Premium แล้ว (เดโม)')">อัปเกรด (เดโม)</button></div>
+  </div></div>`;
+}
+
+/* ---------- Workout player ---------- */
+let W = null;
+function startWorkout(){
+  const T = totals();
+  const P = buildPlan(T.over || 80);
+  const steps = [];
+  P.rounds.forEach((e,i)=>{ steps.push({e, work:true, s:WORK}); if(i<P.rounds.length-1) steps.push({e:P.rounds[i+1], work:false, s:REST}); });
+  W = {steps, i:0, left:steps[0].s, paused:false, burned:0, total:steps.reduce((a,s)=>a+s.s,0), done:0};
+  try{ navigator.wakeLock && navigator.wakeLock.request('screen').catch(()=>{}); }catch(e){}
+  drawPlayer();
+  W.timer = setInterval(tick, 1000);
+}
+function tick(){
+  if(!W || W.paused) return;
+  const st = W.steps[W.i];
+  W.left--; W.done++;
+  W.burned += kcalPerMin(st.work?st.e.met:2.5)/60;
+  if(W.left<=0){ W.i++; if(W.i>=W.steps.length){ finishWorkout(); return; } W.left=W.steps[W.i].s; }
+  drawPlayer();
+}
+function drawPlayer(){
+  const st = W.steps[W.i];
+  const next = W.steps.slice(W.i+1).find(s=>s.work);
+  const mm = String(Math.floor(W.left/60)).padStart(1,'0'), ss = String(W.left%60).padStart(2,'0');
+  $('#overlay').innerHTML = `<div class="player${st.work?'':' rest'}">
+    <div style="width:100%;max-width:400px" class="stack">
+      <div class="row between small" style="opacity:.8"><span class="num">รอบ ${W.steps.slice(0,W.i+1).filter(s=>s.work).length}/${W.steps.filter(s=>s.work).length}</span><span class="num">🔥 ${W.burned.toFixed(1)} kcal</span></div>
+      <div class="bar"><i style="width:${W.done/W.total*100}%"></i></div>
+    </div>
+    <div class="stack" style="align-items:center">
+      <div class="phase">${st.work?'ออกแรง':'พัก · ต่อไป'}</div>
+      <div class="exname">${st.e.th}</div>
+      <div class="small" style="opacity:.7">${st.e.n}</div>
+      <div class="timer num">${mm}:${ss}</div>
+      ${st.work && next?`<div class="small" style="opacity:.7">ต่อไป: ${next.e.th}</div>`:''}
+    </div>
+    <div class="ctl">
+      <button class="btn ghost" onclick="stopWorkout()">หยุด</button>
+      <button class="btn lime" onclick="W.paused=!W.paused;drawPlayer()">${W.paused?'เล่นต่อ':'พัก'}</button>
+      <button class="btn ghost" onclick="skipStep()">ข้าม ›</button>
+    </div>
+  </div>`;
+}
+function skipStep(){ W.done += W.left; W.i++; if(W.i>=W.steps.length){ finishWorkout(); return; } W.left=W.steps[W.i].s; drawPlayer(); }
+function stopWorkout(){
+  clearInterval(W.timer);
+  const burned = W.burned, mins = Math.max(1, Math.round(W.done/60));
+  W=null;
+  if(burned>=5){ S.log.push({t:nowT(), kind:'workout', burn:Math.round(burned), min:mins}); save(); toast(`บันทึกการเผาผลาญ ${Math.round(burned)} kcal`); }
+  closeSheet(); tab='home'; render();
+}
+const PARTNERS = [['Green Bowl Café','ลด 20% เมนูสลัดและโบวล์คลีน'],['FitMeal Delivery','ส่วนลด 40 ฿ อาหารคลีนกล่องแรก'],['Juice Lab','ซื้อ 1 แถม 1 น้ำผักผลไม้สกัดเย็น']];
+function finishWorkout(){
+  clearInterval(W.timer);
+  const burned = Math.round(W.burned), mins = Math.round(W.total/60);
+  S.log.push({t:nowT(), kind:'workout', burn:burned, min:mins});
+  const [shop,deal] = PARTNERS[S.coupons.length % PARTNERS.length];
+  const code = 'FIT' + Math.random().toString(36).slice(2,7).toUpperCase();
+  S.coupons.unshift({shop, deal, code});
+  save(); W=null;
+  $('#overlay').innerHTML = `<div class="player">
+    <div></div>
+    <div class="stack" style="align-items:center;gap:14px;width:100%;max-width:400px">
+      <div class="phase">ชดเชยสำเร็จ</div>
+      <div class="timer num" style="font-size:72px">−${burned}</div>
+      <div>kcal ใน ${mins} นาที</div>
+      <div class="coupon"><div class="small" style="font-weight:600">รางวัลจากร้านพาร์ทเนอร์</div><div style="font-family:var(--display);font-size:18px;font-weight:600">${shop}</div><div class="small">${deal}</div><div class="code num" style="margin-top:6px">${code}</div></div>
+    </div>
+    <div class="ctl"><button class="btn lime" onclick="closeSheet();go('home')">กลับหน้าหลัก</button></div>
+  </div>`;
+}
+
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.tab)));
+render();
+</script>
+</body>
+</html>
