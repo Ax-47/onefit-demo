@@ -14,7 +14,16 @@ const fmt = n => Math.round(n).toLocaleString('th-TH');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const byId = id => FOODS.find(f => f.id === id);
 const round50 = n => Math.round(n / 50) * 50;
-function toast(msg){ const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2400); }
+let toastTimer = null;
+function toast(msg, action){
+  let t = $('#toast');
+  if (!t){ t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button class="toast-act">${esc(action.label)}</button>` : ''}`;
+  if (action) t.querySelector('button').onclick = () => { t.hidden = true; action.fn(); };
+  t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, action ? 5000 : 2400);
+}
+const buzz = ms => { try { navigator.vibrate?.(ms); } catch(e){} };
 
 /* ---------- State ---------- */
 const FREE_SCANS = 5, WATER_GOAL = 8;
@@ -182,7 +191,6 @@ function renderHeader(){
   const st = streak();
   $('#hdr').innerHTML = `
     ${st ? `<span class="pill hot num" title="ออกกำลังกายต่อเนื่อง">🔥 ${st} วัน</span>` : ''}
-    <span class="pill num">${S.premium ? 'สแกนไม่จำกัด' : `สแกน ${scansLeft()}/${FREE_SCANS}`}</span>
     <span class="pill${S.premium ? ' pro' : ''}">${S.premium ? 'Premium' : 'Free'}</span>`;
   $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
 }
@@ -194,10 +202,15 @@ function render(){
   if (tab === 'progress') bindCharts();
 }
 function go(t){ tab = t; render(); window.scrollTo(0, 0); }
-function closeSheet(){ $('#overlay').innerHTML = ''; }
-function sheet(html, dismiss = true){
-  $('#overlay').innerHTML = `<div class="scrim" ${dismiss ? 'onclick="if(event.target===this)closeSheet()"' : ''}><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;
+let curSheet = null;   // re-opens the sheet a detail view was opened from
+function closeSheet(){ $('#overlay').innerHTML = ''; curSheet = null; builderOpen = false; }
+function sheet(html, dismiss = true, back = null){
+  $('#overlay').innerHTML = `<div class="scrim" ${dismiss ? 'onclick="if(event.target===this)closeSheet()"' : ''}><div class="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-bar">${back ? '<button class="sheet-nav" id="sheetBack">‹ กลับ</button>' : '<span></span>'}<div class="grab"></div>${dismiss ? '<button class="sheet-nav x" aria-label="ปิด" onclick="closeSheet()">✕</button>' : '<span></span>'}</div>${html}</div></div>`;
+  if (back) $('#sheetBack').onclick = back;
+  $('.sheet')?.focus?.();
 }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('.scrim')) closeSheet(); });
 
 /* ================= HOME ================= */
 const MEAL_SLOTS = [['เช้า',0,10.5],['กลางวัน',10.5,14.5],['ของว่าง',14.5,17.5],['เย็น',17.5,24]];
@@ -207,9 +220,9 @@ function mealRow(l, i){
   if (l.kind === 'food'){
     const f = foodOf(l);
     const th = l.img ? `<img src="${l.img}" alt="">` : f.e;
-    return `<div class="meal"><div class="thumb">${th}</div><div style="min-width:0"><div class="name">${esc(f.n)}${l.q !== 1 ? ` <span class="muted small">×${l.q}</span>` : ''}</div><div class="small faint">${l.t}</div></div><div class="kcal num">${fmt(entryKcal(l))}</div><button class="x" aria-label="ลบ ${esc(f.n)}" onclick="delLog(${i})">✕</button></div>`;
+    return `<button class="meal" onclick="editEntry(${i})"><div class="thumb">${th}</div><div style="min-width:0;flex:1"><div class="name">${esc(f.n)}${l.q !== 1 ? ` <span class="muted small">×${l.q}</span>` : ''}</div><div class="small faint">${l.t}</div></div><div class="kcal num">${fmt(entryKcal(l))}</div><span class="chev" aria-hidden="true">›</span></button>`;
   }
-  return `<div class="meal"><div class="thumb" style="background:var(--good-soft)">🔥</div><div style="min-width:0"><div class="name">${esc(l.name)}</div><div class="small faint">${l.t} · ${l.min} นาที${l.offset ? ' · ชดเชยส่วนเกิน' : ''}</div></div><div class="kcal neg num">−${fmt(l.burn)}</div><button class="x" aria-label="ลบ ${esc(l.name)}" onclick="delLog(${i})">✕</button></div>`;
+  return `<button class="meal" onclick="editEntry(${i})"><div class="thumb" style="background:var(--good-soft)">🔥</div><div style="min-width:0;flex:1"><div class="name">${esc(l.name)}</div><div class="small faint">${l.t} · ${l.min} นาที${l.offset ? ' · ชดเชยส่วนเกิน' : ''}</div></div><div class="kcal neg num">−${fmt(l.burn)}</div><span class="chev" aria-hidden="true">›</span></button>`;
 }
 
 function viewHome(){
@@ -222,45 +235,74 @@ function viewHome(){
   const wos = log.filter(x => x.l.kind === 'workout');
   const h = new Date().getHours();
   const greet = h < 11 ? 'อรุณสวัสดิ์' : h < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น';
+  const overPct = Math.min(1, T.over / T.goal);
+  const left = T.goal - T.net;
   return `
-  <div class="sec-head"><div><div class="small muted">${greet}</div><h2>${esc(S.profile.name)}</h2></div>
-    ${S.sample ? `<button class="linkbtn" onclick="startFresh()">ล้างข้อมูลตัวอย่าง</button>` : ''}</div>
-  ${S.sample ? `<p class="demo-note" style="text-align:left;margin-top:-8px">กำลังแสดงข้อมูลตัวอย่าง 7 วันเพื่อเดโม</p>` : ''}
+  <div class="sec-head"><div><div class="small muted">${greet}</div><h2>${esc(S.profile.name)}</h2></div>${S.sample ? `<button class="pill" onclick="go('me')" title="ข้อมูลตัวอย่างสำหรับเดโม">ข้อมูลตัวอย่าง</button>` : ''}</div>
   <section class="card">
     <div class="hero">
       <div class="ring">
         <svg viewBox="0 0 132 132" aria-hidden="true"><circle cx="66" cy="66" r="${R}" fill="none" stroke="var(--surface-2)" stroke-width="12"/>
-        <circle cx="66" cy="66" r="${R}" fill="none" stroke="${over ? 'var(--coral)' : 'var(--good)'}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/></svg>
-        <div class="center"><div class="big num" style="color:${over ? 'var(--coral)' : 'var(--ink)'}">${fmt(over ? T.over : T.goal - T.net)}</div><div class="small muted">${over ? 'kcal เกินเป้า' : 'kcal เหลือ'}</div></div>
+        <circle cx="66" cy="66" r="${R}" fill="none" stroke="var(--good)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/>
+        ${over ? `<circle cx="66" cy="66" r="${R}" fill="none" stroke="var(--warn)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C * overPct} ${C}"/>` : ''}</svg>
+        <div class="center"><div class="small muted">${over ? 'เกินเป้า' : 'เหลือกินได้'}</div><div class="big num" style="color:${over ? 'var(--warn-ink)' : 'var(--ink)'}">${fmt(over ? T.over : left)}</div><div class="small muted">kcal</div></div>
       </div>
       <div class="stats">
-        <div class="stat"><span class="muted">เป้าหมาย</span><b class="num">${fmt(T.goal)}</b></div>
         <div class="stat"><span class="muted">กินไป</span><b class="num">${fmt(T.food)}</b></div>
-        <div class="stat"><span class="muted">เผาผลาญ</span><b class="num" style="color:var(--good)">−${fmt(T.burn)}</b></div>
-        <div class="stat"><span class="muted">สุทธิ</span><b class="num">${fmt(T.net)}</b></div>
+        <div class="stat"><span class="muted">เผาผลาญ</span><b class="num" style="color:var(--good)">${T.burn ? '−' : ''}${fmt(T.burn)}</b></div>
+        <div class="stat" style="border-top:1px solid var(--line);padding-top:6px"><span class="muted">เป้าหมาย</span><b class="num">${fmt(T.goal)}</b></div>
       </div>
     </div>
-    <div class="macros">${MN.map((n, i) => `<div><div class="lab"><span>${n}</span><span class="num">${Math.round(T.m[i])}/${MT[i]} ก.</span></div><div class="meter"><i style="width:${Math.min(100, T.m[i] / MT[i] * 100)}%;${T.m[i] > MT[i] * 1.1 ? 'background:var(--coral)' : ''}"></i></div></div>`).join('')}</div>
+    <div class="macros">${MN.map((n, i) => `<div><div class="lab"><span>${n}</span><span class="num">${Math.round(T.m[i])}<span class="faint">/${MT[i]}</span></span></div><div class="meter"><i style="width:${Math.min(100, T.m[i] / MT[i] * 100)}%;${T.m[i] > MT[i] * 1.1 ? 'background:var(--warn)' : ''}"></i></div></div>`).join('')}</div>
   </section>
-  ${over ? `<section class="over-banner">
-      <div style="flex:1"><div class="small muted">กินเกินเป้าไป</div><div class="kc num">${fmt(T.over)} kcal</div><div class="small muted">ไม่ต้องรู้สึกผิด เผาผลาญส่วนเกินได้ใน 10–15 นาที</div></div>
-      <button class="btn coral" onclick="go('workout')">ชดเชยเลย</button>
-    </section>` : `<section class="ok-banner small"><b>อยู่ในเป้าหมาย</b> · กินของชอบได้อีก ${fmt(T.goal - T.net)} kcal วันนี้</section>`}
-  <section class="card stack">
-    <div class="sec-head"><h3>น้ำดื่ม</h3><span class="small muted num">${d.water}/${WATER_GOAL} แก้ว · ${d.water * 250} มล.</span></div>
-    <div class="water">${Array.from({length:WATER_GOAL}, (_, i) => `<button class="glass${i < d.water ? ' full' : ''}" aria-label="แก้วที่ ${i + 1}" onclick="setWater(${i + 1})"></button>`).join('')}</div>
-  </section>
+  ${over ? `<button class="over-banner" onclick="previewProgram('offset')">
+      <div style="flex:1;text-align:left"><b>เผาผลาญส่วนเกิน ${fmt(T.over)} kcal</b><div class="small muted">มินิเวิร์กเอาต์ ${estimate(buildOffset(T.over)).min} นาที ไม่ต้องใช้อุปกรณ์</div></div>
+      <span class="btn sm" aria-hidden="true">ดูท่า ›</span>
+    </button>` : ''}
   <section class="card">
-    <div class="sec-head" style="margin-bottom:6px"><h3>มื้อวันนี้</h3><button class="btn ghost sm" onclick="go('scan')">+ เพิ่มมื้อ</button></div>
+    <div class="sec-head" style="margin-bottom:4px"><h3>มื้อวันนี้</h3><button class="btn ghost sm" onclick="go('scan')">+ เพิ่ม</button></div>
     ${groups.length ? groups.map(([s, items]) => `<div class="meal-group"><div class="sec-head"><span class="eyebrow">${s}</span><span class="tiny faint num">${fmt(items.reduce((a, x) => a + entryKcal(x.l), 0))} kcal</span></div>${items.map(x => mealRow(x.l, x.i)).join('')}</div>`).join('')
-      : `<p class="muted small">ยังไม่มีมื้ออาหารวันนี้ กดปุ่มสแกนด้านล่างเพื่อเริ่มบันทึก</p>`}
+      : `<div class="empty"><p class="muted small">ยังไม่มีมื้ออาหารวันนี้</p><button class="btn lime sm" onclick="go('scan')">สแกนมื้อแรก</button></div>`}
   </section>
   <section class="card">
-    <div class="sec-head" style="margin-bottom:6px"><h3>ออกกำลังกายวันนี้</h3><button class="btn ghost sm" onclick="go('workout')">+ เริ่ม</button></div>
-    ${wos.length ? wos.map(x => mealRow(x.l, x.i)).join('') : `<p class="muted small">ยังไม่ได้ขยับเลยวันนี้ ลอง Office Break 5 นาทีก็ได้</p>`}
+    <div class="sec-head" style="margin-bottom:4px"><h3>ออกกำลังกาย</h3><button class="btn ghost sm" onclick="go('workout')">+ เริ่ม</button></div>
+    ${wos.length ? wos.map(x => mealRow(x.l, x.i)).join('') : `<div class="empty"><p class="muted small">วันนี้ยังไม่ได้ขยับ ลอง 5 นาทีก่อนก็ได้</p><button class="btn ghost sm" onclick="previewProgram('office5')">Office Break 5 นาที</button></div>`}
+  </section>
+  <section class="card stack">
+    <div class="sec-head"><h3>น้ำดื่ม</h3><span class="small muted num">${d.water}/${WATER_GOAL} แก้ว · ${fmt(d.water * 250)} มล.</span></div>
+    <div class="water">${Array.from({length:WATER_GOAL}, (_, i) => `<button class="glass${i < d.water ? ' full' : ''}" aria-label="ดื่มแก้วที่ ${i + 1}" aria-pressed="${i < d.water}" onclick="setWater(${i + 1})"></button>`).join('')}</div>
   </section>`;
 }
-function delLog(i){ day().log.splice(i, 1); save(); render(); }
+function delLog(i){
+  const [gone] = day().log.splice(i, 1); save(); closeSheet(); render();
+  toast(`ลบ ${gone.kind === 'food' ? foodOf(gone).n : gone.name} แล้ว`, {label:'เลิกทำ', fn:() => { day().log.splice(i, 0, gone); save(); render(); }});
+}
+function editEntry(i){
+  const l = day().log[i];
+  if (l.kind === 'workout'){
+    sheet(`<div class="eyebrow">${l.t} · ${l.min} นาที</div><h2>${esc(l.name)}</h2>
+      <div class="tiles"><div><b class="num">${fmt(l.burn)}</b><span class="small muted">kcal</span></div><div><b class="num">${l.min}</b><span class="small muted">นาที</span></div><div><b class="num">${(l.ex || []).length}</b><span class="small muted">ท่า</span></div></div>
+      ${l.ex?.length ? bodyMap(roundsLoad(l.ex), true) : ''}
+      <button class="btn ghost block danger" onclick="delLog(${i})">ลบรายการนี้</button>`);
+    return;
+  }
+  const f = foodOf(l);
+  let qty = l.q;
+  const draw = () => {
+    sheet(`<div class="sec-head"><div><div class="eyebrow">${l.t} · ${slotOf(l.t)}</div><h2>${esc(f.n)}</h2></div><div class="kc-big num">${fmt(f.k * qty)}<span class="small muted"> kcal</span></div></div>
+      <div class="tiles"><div><b class="num">${Math.round(f.m[0] * qty)} ก.</b><span class="small muted">โปรตีน</span></div><div><b class="num">${Math.round(f.m[1] * qty)} ก.</b><span class="small muted">คาร์บ</span></div><div><b class="num">${Math.round(f.m[2] * qty)} ก.</b><span class="small muted">ไขมัน</span></div></div>
+      ${qtyControl(qty)}
+      <div class="row"><button class="btn ghost danger" style="flex:1" onclick="delLog(${i})">ลบ</button><button class="btn" style="flex:2" id="saveEdit">บันทึกการแก้ไข</button></div>`);
+    bindQty(v => { qty = v; draw(); });
+    $('#saveEdit').onclick = () => { l.q = qty; save(); closeSheet(); render(); toast('แก้ไขแล้ว'); };
+  };
+  draw();
+}
+const QTYS = [0.5, 0.75, 1, 1.5, 2];
+function qtyControl(qty){
+  return `<div class="field"><span>ปริมาณที่กิน</span><div class="seg qty">${QTYS.map(v => `<button data-q="${v}" class="${qty === v ? 'on' : ''}">${v === 1 ? '1 ที่' : v + '×'}</button>`).join('')}</div></div>`;
+}
+function bindQty(cb){ $$('[data-q]').forEach(b => b.onclick = () => cb(+b.dataset.q)); }
 function setWater(n){ const d = day(); d.water = d.water === n ? n - 1 : n; save(); checkBadges(); render(); }
 function startFresh(){ S.sample = false; S.days = {[TODAY]:{water:0, scans:0, log:[]}}; S.weights = [{d:TODAY, kg:S.profile.weight}]; S.badges = {}; S.coupons = []; save(); render(); toast('เริ่มบันทึกใหม่แล้ว'); }
 
@@ -277,7 +319,7 @@ function viewScan(){
       <span class="small muted">${left === Infinity ? 'Premium: สแกนได้ไม่จำกัด' : `เหลือสิทธิ์สแกนฟรี ${left} มื้อวันนี้`}</span>
       <input type="file" id="file" accept="image/*" capture="environment" hidden>
     </label>
-    <div class="eyebrow">หรือลองสแกนเมนูยอดนิยม</div>
+    <div class="eyebrow">ไม่มีรูปอยู่ใกล้มือ? ลองสแกนเมนูตัวอย่าง</div>
     <div class="grid-foods">${['mkt','kpr','boba','kmk','bing','pizza'].map(id => foodBtn(byId(id))).join('')}</div>`;
   } else if (scanMode === 'menu'){
     const list = FOODS.filter(f => (cat === 'all' || f.c === cat) && (!q || f.n.toLowerCase().includes(q.toLowerCase())));
@@ -391,6 +433,7 @@ function startScan(id, img, alts){
 }
 
 function showResult(f, img, alts, scanned){
+  const back = curSheet;
   const conf = img ? 72 + (f.id.length * 7) % 18 : 94;
   let qty = 1;
   const draw = () => {
@@ -401,11 +444,11 @@ function showResult(f, img, alts, scanned){
       ${alts ? `<div class="stack" style="gap:6px"><span class="small muted">ไม่ใช่เมนูนี้? เลือกที่ถูกต้อง</span><div class="alts">${alts.filter(a => a !== f.id).map(a => `<button class="chip" data-alt="${a}">${byId(a).e} ${byId(a).n}</button>`).join('')}<button class="chip" data-alt="__menu">ค้นหาเอง…</button></div></div>` : ''}
       <div class="tiles"><div><b class="num">${Math.round(f.m[0] * qty)} ก.</b><span class="small muted">โปรตีน</span></div><div><b class="num">${Math.round(f.m[1] * qty)} ก.</b><span class="small muted">คาร์บ</span></div><div><b class="num">${Math.round(f.m[2] * qty)} ก.</b><span class="small muted">ไขมัน</span></div></div>
       ${f.ing && f.ing.length ? `<div><div class="eyebrow" style="margin-bottom:4px">ส่วนผสมที่ประเมินได้</div>${f.ing.map(([n, k]) => `<div class="ing"><span>${n}</span><span class="num muted">${fmt(k * qty)} kcal</span></div>`).join('')}</div>` : ''}
-      <label class="field"><span class="row between"><span>ปริมาณที่กิน</span><b class="num" style="color:var(--ink)">${qty}×</b></span><input type="range" id="qty" min="0.25" max="2" step="0.25" value="${qty}"></label>
+      ${qtyControl(qty)}
       <div class="small muted">ต้องออกกำลังกายประมาณ <b class="num" style="color:var(--ink)">${Math.round(f.k * qty / kcalPerMin(8))} นาที</b> (HIIT) เพื่อเผาผลาญมื้อนี้</div>
-      <div class="row"><button class="btn ghost" style="flex:1" onclick="closeSheet()">ยกเลิก</button><button class="btn" style="flex:2" id="addBtn">บันทึกมื้อนี้</button></div>
-      ${img ? '<p class="demo-note">โหมดเดโม: ผลจาก AI เป็นการจำลอง แอปจริงใช้โมเดล Computer Vision</p>' : ''}`);
-    $('#qty').addEventListener('input', e => { qty = +e.target.value; draw(); $('#qty').focus(); });
+      <button class="btn block" id="addBtn">บันทึกมื้อนี้ · ${fmt(f.k * qty)} kcal</button>
+      ${img ? '<p class="demo-note">โหมดเดโม: ผลจาก AI เป็นการจำลอง แอปจริงใช้โมเดล Computer Vision</p>' : ''}`, true, back);
+    bindQty(v => { qty = v; draw(); });
     $$('[data-alt]').forEach(b => b.onclick = () => { if (b.dataset.alt === '__menu'){ closeSheet(); scanMode = 'menu'; go('scan'); } else showResult(byId(b.dataset.alt), img, alts, scanned); });
     $('#addBtn').onclick = () => addFood(f.id && byId(f.id) ? {id:f.id, q:qty, img:img || undefined} : {custom:f, q:qty});
   };
@@ -415,10 +458,10 @@ function showResult(f, img, alts, scanned){
 function openPartner(pid){
   const p = PARTNERS.find(p => p.id === pid);
   if (!S.checkins.includes(pid)){ S.checkins.push(pid); award('partner'); save(); }
+  curSheet = () => openPartner(pid);
   sheet(`<div class="eyebrow">สแกน QR ร้านพาร์ทเนอร์</div><h2>${p.n}</h2>
     <div class="ok-banner small">${p.deal}</div>
-    <div class="stack" style="gap:0">${p.menu.map((m, i) => `<button class="ex" onclick="pickPartner('${pid}',${i})"><div class="thumb">${m.e}</div><div style="flex:1"><div style="font-weight:500">${m.n}</div><div class="small muted num">P ${m.m[0]} · C ${m.m[1]} · F ${m.m[2]} ก.</div></div><b class="num">${fmt(m.k)}</b></button>`).join('')}</div>
-    <button class="btn ghost block" onclick="closeSheet()">ปิด</button>`);
+    <div class="stack" style="gap:0">${p.menu.map((m, i) => `<button class="ex" onclick="pickPartner('${pid}',${i})"><div class="thumb">${m.e}</div><div style="flex:1"><div style="font-weight:500">${m.n}</div><div class="small muted num">P ${m.m[0]} · C ${m.m[1]} · F ${m.m[2]} ก.</div></div><b class="num">${fmt(m.k)}</b><span class="chev" aria-hidden="true">›</span></button>`).join('')}</div>`);
 }
 function pickPartner(pid, i){ const p = PARTNERS.find(p => p.id === pid), m = p.menu[i]; showResult({...m, ing:[], id:null, n:`${m.n} · ${p.n}`}, null, null, false); }
 
@@ -448,31 +491,25 @@ function estimate(prog){
 function viewWorkout(){
   const T = totals(), target = T.over || 80, P = buildOffset(target), E = estimate(P);
   const progs = [...PROGRAMS, ...S.custom];
-  const exs = EX.filter(e => exFilter === 'all' || e.f.includes(exFilter));
   return `
   <div><h2>เวิร์กเอาต์</h2><p class="small muted">ไม่ต้องใช้อุปกรณ์ ทำที่บ้าน หอ หรือออฟฟิศได้</p></div>
-  <section class="offset-card">
-    <div class="row between"><span class="eyebrow" style="color:inherit;opacity:.7">ชดเชยแคลอรีส่วนเกิน</span><span class="pill pro">${level().n} · ${level().work}/${level().rest} วิ</span></div>
-    <div><div class="big num">${T.over ? `${fmt(T.over)} kcal` : 'ยังไม่เกินเป้า'}</div><div class="small muted">${T.over ? 'แอปจัดเซตให้อัตโนมัติจากมื้อที่กินเกิน' : 'เผาผลาญล่วงหน้าไว้ก่อน เผื่อมื้อเย็นจัดเต็ม'}</div></div>
-    <div class="focus">${FOCUS.map(([k, v, pro]) => `<button class="${S.focus === k ? 'on' : ''}" onclick="setFocus('${k}',${pro})">${v}${pro && !S.premium ? '<span class="lock">PRO</span>' : ''}</button>`).join('')}</div>
-    <div class="tiles" style="color:var(--ink)"><div><b class="num">${E.min}</b><span class="small muted">นาที</span></div><div><b class="num">${fmt(E.burn)}</b><span class="small muted">kcal (ประมาณ)</span></div><div><b class="num">${P.rounds.length}</b><span class="small muted">ท่า</span></div></div>
-    ${T.over && E.burn < target ? `<p class="small muted">เซสชันนี้ชดเชยได้ ~${fmt(E.burn)} จาก ${fmt(target)} kcal ส่วนที่เหลือแนะนำเดินเพิ่ม 30 นาที หรือทำอีกเซสชันตอนเย็น</p>` : ''}
-    <div class="row"><button class="btn ghost" style="flex:1;color:inherit;border-color:rgba(127,127,127,.4)" onclick="previewProgram('offset')">ดูท่า</button><button class="btn lime" style="flex:2" onclick="startProgram('offset')">เริ่ม ${E.min} นาที</button></div>
+  <section class="card stack today-wo${T.over ? ' is-over' : ''}">
+    <div class="eyebrow">${T.over ? 'แนะนำสำหรับวันนี้' : 'ยังไม่เกินเป้า'}</div>
+    <div><h2>${T.over ? `เผาผลาญส่วนเกิน ${fmt(T.over)} kcal` : 'เผาผลาญล่วงหน้าไว้ก่อน'}</h2>
+      <p class="small muted">${E.min} นาที · ~${fmt(E.burn)} kcal · ${P.rounds.length} ท่า · ${level().n}</p></div>
+    <div class="focus" role="group" aria-label="โฟกัส">${FOCUS.map(([k, v, pro]) => `<button class="${S.focus === k ? 'on' : ''}" aria-pressed="${S.focus === k}" onclick="setFocus('${k}',${pro})">${v}${pro && !S.premium ? '<span class="lock">PRO</span>' : ''}</button>`).join('')}</div>
+    ${T.over && E.burn < target ? `<p class="small muted">รอบนี้เผาได้ประมาณ ${fmt(E.burn)} kcal ส่วนที่เหลือเดินเพิ่มสัก 30 นาทีก็ได้</p>` : ''}
+    <div class="row"><button class="btn ghost" style="flex:1" onclick="previewProgram('offset')">ดูท่า</button><button class="btn lime" style="flex:2" onclick="startProgram('offset')">เริ่มเลย</button></div>
   </section>
   <section class="stack">
-    <div class="sec-head"><h3>ความหนัก</h3><span class="small muted">ใช้กับทุกโปรแกรม</span></div>
-    <div class="seg">${LEVELS.map(l => `<button class="${S.level === l.id ? 'on' : ''}" onclick="S.level='${l.id}';save();render()">${l.n}<br><span class="tiny faint num">${l.work}/${l.rest} วิ</span></button>`).join('')}</div>
+    <div class="sec-head"><h3>ความหนัก</h3><span class="small muted">ออกแรง/พัก (วินาที)</span></div>
+    <div class="seg">${LEVELS.map(l => `<button class="${S.level === l.id ? 'on' : ''}" aria-pressed="${S.level === l.id}" onclick="S.level='${l.id}';save();render()">${l.n} <span class="tiny faint num">${l.work}/${l.rest}</span></button>`).join('')}</div>
   </section>
   <section class="stack">
     <div class="sec-head"><h3>โปรแกรม</h3><button class="linkbtn" onclick="openBuilder()">+ สร้างเอง${S.premium ? '' : ' (PRO)'}</button></div>
     <div class="programs">${progs.map(p => { const e = estimate(p); return `<button class="prog ${p.color || 'mint'}" onclick="previewProgram('${p.id}')">${p.pro && !S.premium ? '<span class="lock">PRO</span>' : ''}<span class="tiny faint">${esc(p.tag)}</span><span class="n">${esc(p.n)}</span><span class="meta num">${e.min} นาที · ~${fmt(e.burn)} kcal</span></button>`; }).join('')}</div>
   </section>
-  <section class="stack">
-    <div class="sec-head"><h3>คลังท่าออกกำลังกาย</h3><button class="linkbtn" onclick="openLibrary()">ดูทั้งหมด ${OG.length} ท่า ›</button></div>
-    <button class="og-banner" onclick="openLibrary()"><img src="media/gif/${OG_BY['0630']?.gif || ''}" alt=""><div style="flex:1;text-align:left"><b>คลังท่าจาก openGym</b><div class="small muted">${OG.length} ท่าไม่ใช้อุปกรณ์ พร้อมภาพเคลื่อนไหวสาธิต</div></div><span aria-hidden="true">›</span></button>
-    <div class="chips">${[['all','ทั้งหมด'],['full','ทั้งตัว'],['core','หน้าท้อง'],['legs','ขา/ก้น'],['arms','แขน/อก'],['office','ออฟฟิศ'],['stretch','ยืดเหยียด']].map(([k, v]) => `<button class="chip${exFilter === k ? ' on' : ''}" onclick="exFilter='${k}';render()">${v}</button>`).join('')}</div>
-    <div class="card" style="padding-block:6px">${exs.map(e => `<button class="ex" onclick="exDetail('${e.id}')">${gifOf(e) ? `<img class="gthumb" loading="lazy" src="${gifOf(e)}" alt="">` : `<div class="idx">${e.th.slice(0, 1)}</div>`}<div style="flex:1;min-width:0"><div style="font-weight:500">${e.th}</div><div class="small muted">${e.n} · ${e.mus}</div></div><span class="small faint num">${kcalPerMin(e.met).toFixed(1)} kcal/นาที</span></button>`).join('')}</div>
-  </section>
+  <button class="og-banner" onclick="openLibrary()"><img src="media/gif/${OG_BY['0630']?.gif || ''}" alt=""><div style="flex:1;text-align:left"><b>คลังท่าออกกำลังกาย</b><div class="small muted">${EX.length + OG.length} ท่า พร้อมภาพเคลื่อนไหวและวิธีทำ</div></div><span class="chev" aria-hidden="true">›</span></button>
   <p class="demo-note">แคลอรีคำนวณจาก MET × น้ำหนัก ${S.profile.weight} กก. เป็นค่าประมาณ</p>`;
 }
 function setFocus(k, pro){ if (pro && !S.premium){ paywall('เวิร์กเอาต์ชดเชยเฉพาะจุดเป็นฟีเจอร์ Premium'); return; } S.focus = k; save(); render(); }
@@ -481,16 +518,17 @@ function findProgram(id){ return id === 'offset' ? buildOffset(totals().over || 
 function previewProgram(id){
   const p = findProgram(id), e = estimate(p);
   const grouped = []; p.rounds.forEach(r => { const g = grouped.find(x => x.id === r); g ? g.n++ : grouped.push({id:r, n:1}); });
-  const locked = p.pro && !S.premium;
+  const locked = p.pro && !S.premium, back = curSheet;
+  curSheet = () => previewProgram(id);
   sheet(`<div class="eyebrow">${esc(p.tag || 'ชดเชยแคลอรี')}</div><h2>${esc(p.n)}</h2>
     <div class="tiles"><div><b class="num">${e.min}</b><span class="small muted">นาที</span></div><div><b class="num">${fmt(e.burn)}</b><span class="small muted">kcal</span></div><div><b class="num">${p.rounds.length}</b><span class="small muted">ท่า</span></div></div>
     ${bodyMap(roundsLoad(p.rounds), true)}
-    <div>${grouped.map((g, i) => { const x = exById(g.id); const gf = gifOf(x); return `<button class="ex" onclick="exDetail('${x.id}')">${gf ? `<img class="gthumb" loading="lazy" src="${gf}" alt="">` : `<div class="idx num">${i + 1}</div>`}<div style="flex:1"><div style="font-weight:500">${x.th}</div><div class="small muted">${x.n}</div></div><span class="small muted num">${g.n} รอบ</span></button>`; }).join('')}</div>
+    <div>${grouped.map((g, i) => { const x = exById(g.id); const gf = gifOf(x); return `<button class="ex" onclick="exDetail('${x.id}')">${gf ? `<img class="gthumb" loading="lazy" src="${gf}" alt="">` : `<div class="idx num">${i + 1}</div>`}<div style="flex:1;min-width:0"><div style="font-weight:500">${esc(x.th)}</div><div class="small muted">${x.n !== x.th ? esc(x.n) : esc(x.mus)}</div></div><span class="small muted num">${g.n} รอบ</span><span class="chev" aria-hidden="true">›</span></button>`; }).join('')}</div>
     ${p.mine ? `<button class="linkbtn" style="color:var(--coral)" onclick="delCustom('${p.id}')">ลบโปรแกรมนี้</button>` : ''}
-    <div class="row"><button class="btn ghost" style="flex:1" onclick="closeSheet()">ปิด</button><button class="btn ${locked ? 'lime' : ''}" style="flex:2" onclick="startProgram('${p.id}')">${locked ? 'ปลดล็อกด้วย Premium' : 'เริ่มเลย'}</button></div>`);
+    <div class="sticky-cta"><button class="btn block ${locked ? 'lime' : ''}" onclick="startProgram('${p.id}')">${locked ? 'ปลดล็อกด้วย Premium' : `เริ่ม ${e.min} นาที`}</button></div>`, true, back);
 }
 function exDetail(id){
-  const e = exById(id), gif = gifOf(e);
+  const e = exById(id), gif = gifOf(e), back = curSheet;
   const load = {}; musclesOf(e).forEach((m, i) => load[m] = i < (e.fromOG ? (TG_SLUG[OG_BY[id.slice(2)]?.tg] || []).length : 99) ? 2 : 1);
   sheet(`${gif ? `<div class="gifbox"><img src="${gif}" alt="ท่าตัวอย่าง ${esc(e.n)}"></div>` : ''}
     <div class="eyebrow">${e.fromOG ? 'คลังท่า openGym' : esc(e.n)}</div><h2>${esc(e.th)}</h2>
@@ -499,31 +537,36 @@ function exDetail(id){
     <div class="ok-banner small"><b>ท่าง่ายลง / ถนอมเข่า:</b> ${esc(e.easy)}</div>
     <div class="small muted">กล้ามเนื้อที่ใช้: ${esc(e.mus)}</div>
     ${bodyMap(load, true)}
-    <div class="row"><button class="btn ghost" style="flex:1" onclick="closeSheet()">ปิด</button><button class="btn" style="flex:1" onclick="tryExercise('${id}')">ลองทำ 3 รอบ</button></div>
-    ${builderOpen ? `<button class="btn lime block" onclick="builderSel.push('${id}');drawBuilder()">+ เพิ่มลงโปรแกรมที่กำลังสร้าง</button>` : `<button class="linkbtn" onclick="openBuilder('${id}')">+ สร้างโปรแกรมที่มีท่านี้${S.premium ? '' : ' (PRO)'}</button>`}`);
+    <div class="sticky-cta">${builderOpen ? `<button class="btn lime block" onclick="builderSel.push('${id}');drawBuilder();toast('เพิ่ม ${esc(e.th).replace(/'/g, '')} แล้ว')">+ เพิ่มลงโปรแกรม</button>` : `<div class="row"><button class="btn ghost" style="flex:1" onclick="openBuilder('${id}')">+ ใส่โปรแกรม${S.premium ? '' : ' (PRO)'}</button><button class="btn" style="flex:1" onclick="tryExercise('${id}')">ลองทำ 3 รอบ</button></div>`}</div>`, true, back);
 }
 let tempProg = null;
 function tryExercise(id){ const e = exById(id); tempProg = {id:'temp', n:`ลองท่า ${e.th}`, tag:'ลองท่า', rounds:[id, id, id], rest:/stretch|pose/i.test(e.n) ? false : undefined}; closeSheet(); startProgram('temp'); }
 
-/* openGym library browser */
-let lib = {q:'', bp:'all', shown:40};
-function openLibrary(){ lib.shown = 40; drawLibrary(); }
+/* Exercise library: OneFit's own moves + the openGym set */
+let lib = {q:'', bp:'all', src:'mine', shown:40};
+const MINE_CATS = [['all','ทั้งหมด'],['full','ทั้งตัว'],['core','หน้าท้อง'],['legs','ขา/ก้น'],['arms','แขน/อก'],['office','ออฟฟิศ'],['stretch','ยืดเหยียด']];
+function openLibrary(){ lib.shown = 40; lib.bp = 'all'; drawLibrary(); }
 function libList(){
   const q = lib.q.toLowerCase();
-  return OG.filter(o => (lib.bp === 'all' || o.bp === lib.bp) && (!q || o.n.includes(q) || (MUSCLE_TH[(TG_SLUG[o.tg] || [])[0]] || '').includes(lib.q)));
+  if (lib.src === 'mine') return EX.filter(e => (lib.bp === 'all' || e.f.includes(lib.bp)) && (!q || e.th.includes(lib.q) || e.n.toLowerCase().includes(q) || e.mus.includes(lib.q))).map(e => e.id);
+  return OG.filter(o => (lib.bp === 'all' || o.bp === lib.bp) && (!q || o.n.includes(q) || (MUSCLE_TH[(TG_SLUG[o.tg] || [])[0]] || '').includes(lib.q))).map(o => 'og' + o.id);
 }
 function libRows(){
   const list = libList();
   return `<p class="small muted num">${fmt(list.length)} ท่า</p>
-    <div>${list.slice(0, lib.shown).map(o => { const m = (TG_SLUG[o.tg] || []).map(s => MUSCLE_TH[s]).join(', ');
-      return `<button class="ex" onclick="exDetail('og${o.id}')"><img class="gthumb" loading="lazy" src="media/gif/${o.gif}" alt=""><div style="flex:1;min-width:0"><div style="font-weight:500">${esc(cap(o.n))}</div><div class="small muted">${esc(m || BP_TH[o.bp] || o.bp)}</div></div></button>`; }).join('')}</div>
+    <div>${list.slice(0, lib.shown).map(id => { const e = exById(id), gf = gifOf(e);
+      return `<button class="ex" onclick="exDetail('${id}')">${gf ? `<img class="gthumb" loading="lazy" src="${gf}" alt="">` : `<div class="idx">${esc(e.th.slice(0, 1))}</div>`}<div style="flex:1;min-width:0"><div style="font-weight:500">${esc(e.th)}</div><div class="small muted">${esc(e.mus)}</div></div><span class="chev" aria-hidden="true">›</span></button>`; }).join('')}</div>
     ${list.length > lib.shown ? `<button class="btn ghost block" onclick="lib.shown+=40;$('#libRows').innerHTML=libRows()">แสดงเพิ่ม</button>` : ''}`;
 }
 function drawLibrary(){
-  sheet(`<div class="sec-head"><div><div class="eyebrow">จาก openGym</div><h2>คลังท่าไม่ใช้อุปกรณ์</h2></div><button class="linkbtn" onclick="closeSheet()">ปิด</button></div>
-    <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="libQ" placeholder="ค้นหา เช่น squat, push-up, ก้น" value="${esc(lib.q)}" aria-label="ค้นหาท่า"></div>
-    <div class="chips">${[['all','ทั้งหมด'], ...Object.entries(BP_TH)].map(([k, v]) => `<button class="chip${lib.bp === k ? ' on' : ''}" onclick="lib.bp='${k}';lib.shown=40;drawLibrary()">${v}</button>`).join('')}</div>
-    <div id="libRows">${libRows()}</div>`);
+  const back = builderOpen ? drawBuilder : null;
+  curSheet = drawLibrary;
+  const cats = lib.src === 'mine' ? MINE_CATS : [['all','ทั้งหมด'], ...Object.entries(BP_TH)];
+  sheet(`<h2>คลังท่าออกกำลังกาย</h2>
+    <div class="seg"><button class="${lib.src === 'mine' ? 'on' : ''}" onclick="lib.src='mine';lib.bp='all';lib.shown=40;drawLibrary()">ท่าแนะนำ (${EX.length})</button><button class="${lib.src === 'og' ? 'on' : ''}" onclick="lib.src='og';lib.bp='all';lib.shown=40;drawLibrary()">openGym (${OG.length})</button></div>
+    <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="libQ" placeholder="${lib.src === 'og' ? 'ค้นหา เช่น squat, push-up, ก้น' : 'ค้นหา เช่น สควอต, หน้าท้อง'}" value="${esc(lib.q)}" aria-label="ค้นหาท่า"></div>
+    <div class="chips">${cats.map(([k, v]) => `<button class="chip${lib.bp === k ? ' on' : ''}" onclick="lib.bp='${k}';lib.shown=40;drawLibrary()">${v}</button>`).join('')}</div>
+    <div id="libRows">${libRows()}</div>`, true, back);
   $('#libQ').addEventListener('input', e => { lib.q = e.target.value.trim(); lib.shown = 40; $('#libRows').innerHTML = libRows(); });
 }
 
@@ -535,13 +578,14 @@ function openBuilder(first){
 }
 function drawBuilder(){
   if ($('#bName')) builderName = $('#bName').value;
+  curSheet = drawBuilder;
   sheet(`<h2>สร้างโปรแกรมของฉัน</h2><p class="small muted">แตะท่าตามลำดับที่ต้องการ แตะซ้ำได้</p>
     <label class="field"><span>ชื่อโปรแกรม</span><input id="bName" value="${esc(builderName)}"></label>
     <div class="card" style="padding:10px;min-height:52px">${builderSel.length ? `<div class="selchips">${builderSel.map((id, i) => `<button class="chip on" onclick="builderSel.splice(${i},1);drawBuilder()">${i + 1}. ${esc(exById(id).th)} ✕</button>`).join('')}</div>` : '<span class="small faint">ยังไม่ได้เลือกท่า</span>'}</div>
     ${builderSel.length ? bodyMap(roundsLoad(builderSel), true) : ''}
     <div class="alts">${EX.map(e => `<button class="chip" onclick="builderSel.push('${e.id}');drawBuilder()">+ ${e.th}</button>`).join('')}</div>
-    <button class="btn ghost block" onclick="builderName=$('#bName').value;openLibrary()">+ เลือกจากคลัง openGym (${OG.length} ท่า)</button>
-    <div class="row"><button class="btn ghost" style="flex:1" onclick="builderOpen=false;closeSheet()">ยกเลิก</button><button class="btn" style="flex:2" ${builderSel.length < 3 ? 'disabled' : ''} onclick="saveBuilder()">บันทึก (${builderSel.length} ท่า)</button></div>`);
+    <button class="btn ghost block" onclick="builderName=$('#bName').value;lib.src='og';openLibrary()">+ เลือกจากคลังท่าทั้งหมด</button>
+    <div class="sticky-cta"><button class="btn block" ${builderSel.length < 3 ? 'disabled' : ''} onclick="saveBuilder()">${builderSel.length < 3 ? `เลือกอีก ${3 - builderSel.length} ท่าเพื่อบันทึก` : `บันทึกโปรแกรม (${builderSel.length} ท่า)`}</button></div>`);
 }
 function saveBuilder(){
   builderOpen = false;
@@ -581,6 +625,7 @@ function startProgram(id){
     if (i < p.rounds.length - 1) steps.push({kind:'rest', e:exById(p.rounds[i + 1]), s:rest});
   });
   W = {p, steps, i:0, left:steps[0].s, paused:false, burned:0, done:0, total:steps.reduce((a, s) => a + s.s, 0)};
+  if ($('#toast')) $('#toast').hidden = true;
   try { navigator.wakeLock?.request('screen').then(l => W && (W.lock = l)).catch(() => {}); } catch(e){}
   beep(660); say(`เตรียมตัว ท่าแรก ${W.steps[0].e.th}`);
   drawPlayer();
@@ -589,6 +634,7 @@ function startProgram(id){
 function enterStep(){
   const st = W.steps[W.i];
   W.left = st.s;
+  buzz(st.kind === 'work' ? [80, 60, 80] : 120);
   if (st.kind === 'work'){ beep(990, 250); say(`เริ่ม ${st.e.th}`); }
   else if (st.kind === 'rest'){ beep(520, 250); say(`พัก ท่าต่อไป ${st.e.th}`); }
 }
@@ -609,8 +655,8 @@ function drawPlayer(){
   const label = {ready:'เตรียมตัว', work:'ออกแรง', rest:'พัก · ท่าต่อไป'}[st.kind];
   $('#overlay').innerHTML = `<div class="player ${st.kind}" role="dialog" aria-label="กำลังออกกำลังกาย">
     <div style="width:100%;max-width:400px" class="stack">
-      <div class="row between small"><span class="num" style="opacity:.8">ท่า ${Math.max(1, idx)}/${works.length}</span>
-        <span class="row" style="gap:6px"><button class="iconbtn" onclick="S.settings.voice=!S.settings.voice;save();drawPlayer()">${S.settings.voice ? 'เสียงพากย์ เปิด' : 'เสียงพากย์ ปิด'}</button><span class="num" style="opacity:.8">🔥 ${W.burned.toFixed(1)} kcal</span></span></div>
+      <div class="row between small"><button class="iconbtn" onclick="askEnd()">✕ จบ</button><span class="num" style="opacity:.85">ท่า ${Math.max(1, idx)}/${works.length} · 🔥 ${Math.round(W.burned)} kcal</span>
+        <button class="iconbtn" aria-pressed="${S.settings.voice}" onclick="S.settings.voice=!S.settings.voice;save();drawPlayer()">${S.settings.voice ? '🔊 เสียง' : '🔇 เสียง'}</button></div>
       <div class="bar"><i style="width:${W.done / W.total * 100}%"></i></div>
     </div>
     <div class="stack" style="align-items:center">
@@ -618,18 +664,21 @@ function drawPlayer(){
       <div class="phase">${label}</div>
       <div class="exname">${esc(st.e.th)}</div>
       ${st.e.n !== st.e.th ? `<div class="small" style="opacity:.7">${esc(st.e.n)}</div>` : ''}
-      <div class="timer num" aria-live="off">${Math.floor(W.left / 60)}:${String(W.left % 60).padStart(2, '0')}</div>
+      <div class="timer num${W.paused ? ' paused' : ''}" aria-live="off" onclick="togglePause()">${Math.floor(W.left / 60)}:${String(W.left % 60).padStart(2, '0')}</div>
       <div class="hint">${st.kind === 'work' ? st.e.how[1] : `${st.e.how[0]} · ง่ายลง: ${st.e.easy}`}</div>
       ${st.kind === 'work' && next ? `<div class="small" style="opacity:.6">ต่อไป: ${next.e.th}</div>` : ''}
     </div>
     <div class="ctl">
-      <button class="btn ghost" onclick="prevStep()" aria-label="ท่าก่อนหน้า">‹</button>
-      <button class="btn ghost" onclick="stopWorkout()">หยุด</button>
-      <button class="btn lime" style="flex:2" onclick="W.paused=!W.paused;drawPlayer()">${W.paused ? 'เล่นต่อ' : 'หยุดชั่วคราว'}</button>
-      <button class="btn ghost" onclick="skipStep()" aria-label="ข้าม">›</button>
+      <button class="btn ghost" onclick="prevStep()" aria-label="ท่าก่อนหน้า">⏮<span class="ctl-l">ย้อน</span></button>
+      <button class="btn lime big" onclick="togglePause()" aria-label="${W.paused ? 'เล่นต่อ' : 'พัก'}">${W.paused ? '▶ เล่นต่อ' : '⏸ พัก'}</button>
+      <button class="btn ghost" onclick="skipStep()" aria-label="ข้าม">⏭<span class="ctl-l">ข้าม</span></button>
     </div>
+    ${W.confirm ? `<div class="end-panel" role="alertdialog" aria-label="จบเซสชัน"><b>จบเซสชันตอนนี้?</b><p class="small" style="opacity:.8">จะบันทึกการเผาผลาญ ${Math.round(W.burned)} kcal ที่ทำไปแล้ว</p>
+      <div class="row"><button class="btn ghost" style="flex:1" onclick="W.confirm=false;W.paused=W.wasPaused;drawPlayer()">ทำต่อ</button><button class="btn lime" style="flex:1" onclick="stopWorkout()">จบและบันทึก</button></div></div>` : ''}
   </div>`;
 }
+function togglePause(){ W.paused = !W.paused; buzz(20); drawPlayer(); }
+function askEnd(){ W.wasPaused = W.paused; W.paused = true; W.confirm = true; drawPlayer(); }
 function skipStep(){ W.done += W.left; W.i++; if (W.i >= W.steps.length){ finishWorkout(); return; } enterStep(); drawPlayer(); }
 function prevStep(){
   let j = W.i - 1;
@@ -832,6 +881,7 @@ function viewMe(){
     <h3>เครดิต</h3>
     <p class="muted">คลังท่า ${OG.length} ท่า ภาพเคลื่อนไหว และแผนภาพกล้ามเนื้อ นำมาจากโปรเจกต์โอเพนซอร์ส <b>openGym</b> โดย Duarte Santos (AGPL-3.0) ซึ่งใช้ชุดข้อมูล hasaneyldrm/exercises-dataset และรูปร่างกายจาก MuscleMap โดย Melih Colpan (MIT)</p>
   </section>
+  ${S.sample ? `<section class="card stack"><h3>พร้อมใช้งานจริงแล้ว?</h3><p class="small muted">ตอนนี้แอปแสดงข้อมูลตัวอย่าง 7 วันเพื่อเดโม ล้างออกแล้วเริ่มบันทึกของตัวเองได้เลย</p><button class="btn block" onclick="startFresh()">ล้างข้อมูลตัวอย่าง</button></section>` : ''}
   <div class="row"><button class="btn ghost" style="flex:1" onclick="resetDemo()">โหลดข้อมูลตัวอย่าง</button><button class="btn ghost" style="flex:1;color:var(--coral)" onclick="confirmWipe()">ลบข้อมูลทั้งหมด</button></div>
   <p class="demo-note">OneFit demo · ไม่มีการชำระเงินจริง ข้อมูลเก็บในเบราว์เซอร์นี้เท่านั้น</p>`;
 }
