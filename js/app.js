@@ -320,7 +320,7 @@ function viewScan(){
       <input type="file" id="file" accept="image/*" capture="environment" hidden>
     </label>
     <div class="eyebrow">ไม่มีรูปอยู่ใกล้มือ? ลองสแกนเมนูตัวอย่าง</div>
-    <div class="grid-foods">${['mkt','kpr','boba','kmk','bing','pizza'].map(id => foodBtn(byId(id))).join('')}</div>`;
+    <div class="grid-foods">${['mkt','kpr','boba','kmk','bing','pizza'].map(id => foodBtn(byId(id), true)).join('')}</div>`;
   } else if (scanMode === 'menu'){
     const list = FOODS.filter(f => (cat === 'all' || f.c === cat) && (!q || f.n.toLowerCase().includes(q.toLowerCase())));
     const recent = [...new Set(Object.keys(S.days).sort().reverse().flatMap(k => S.days[k].log.filter(l => l.kind === 'food' && l.id).map(l => l.id)))].slice(0, 6);
@@ -328,7 +328,7 @@ function viewScan(){
     <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" placeholder="ค้นหาเมนู เช่น ชาไทย, หมูกระทะ" value="${esc(q)}" aria-label="ค้นหาเมนู"></div>
     ${!q && recent.length ? `<div class="eyebrow">กินบ่อย</div><div class="chips">${recent.map(id => `<button class="chip" onclick="pickFood('${id}')">${byId(id).e} ${byId(id).n}</button>`).join('')}</div>` : ''}
     <div class="chips">${CATS.map(([k, v]) => `<button class="chip${cat === k ? ' on' : ''}" onclick="cat='${k}';render()">${v}</button>`).join('')}</div>
-    <div class="grid-foods" id="foodGrid">${list.map(foodBtn).join('') || '<p class="muted small">ไม่พบเมนูนี้ ลองแท็บ "กรอกเอง"</p>'}</div>
+    <div class="grid-foods" id="foodGrid">${list.map(f => foodBtn(f)).join('') || '<p class="muted small">ไม่พบเมนูนี้ ลองแท็บ "กรอกเอง"</p>'}</div>
     <p class="demo-note">เลือกจากฐานข้อมูลโดยตรงไม่เสียสิทธิ์สแกน</p>`;
   } else if (scanMode === 'partner'){
     body = `
@@ -355,14 +355,14 @@ function viewScan(){
   <div class="seg" role="tablist">${modes.map(([k, v]) => `<button role="tab" class="${scanMode === k ? 'on' : ''}" onclick="scanMode='${k}';render()">${v}</button>`).join('')}</div>
   ${body}`;
 }
-const foodBtn = f => `<button class="food" onclick="pickFood('${f.id}')"><span class="e">${f.e}</span><span class="n">${f.n}</span><span class="k num">~${fmt(f.k)} kcal</span></button>`;
+const foodBtn = (f, scan) => `<button class="food" onclick="${scan ? 'startScan' : 'pickFood'}('${f.id}')"><span class="e">${f.e}</span><span class="n">${f.n}</span><span class="k num">~${fmt(f.k)} kcal</span></button>`;
 
 function bindScan(){
   const qi = $('#q');
   if (qi) qi.addEventListener('input', e => {
     q = e.target.value.trim();
     const list = FOODS.filter(f => (cat === 'all' || f.c === cat) && (!q || f.n.toLowerCase().includes(q.toLowerCase())));
-    $('#foodGrid').innerHTML = list.map(foodBtn).join('') || '<p class="muted small">ไม่พบเมนูนี้ ลองแท็บ "กรอกเอง"</p>';
+    $('#foodGrid').innerHTML = list.map(f => foodBtn(f)).join('') || '<p class="muted small">ไม่พบเมนูนี้ ลองแท็บ "กรอกเอง"</p>';
   });
   const f = $('#file'), d = $('#drop');
   if (f){
